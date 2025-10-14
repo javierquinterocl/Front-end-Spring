@@ -1,8 +1,6 @@
-import from "react"
 
 import { useState, useEffect } from "react"
-import { usePathname } from "next/navigation"
-import Link from "next/link"
+import { useLocation, Link } from "react-router-dom"
 import {
   BarChart3,
   FileText,
@@ -22,7 +20,7 @@ import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 
-function NavItem({ icon, label, href, isActive, collapsed }: NavItemProps) {
+function NavItem({ icon, label, href, isActive, collapsed }) {
   return (
     <Button
       variant="ghost"
@@ -33,7 +31,7 @@ function NavItem({ icon, label, href, isActive, collapsed }: NavItemProps) {
       )}
       asChild
     >
-      <Link href={href}>
+      <Link to={href}>
         {icon}
         {!collapsed && <span className="ml-2">{label}</span>}
       </Link>
@@ -42,11 +40,12 @@ function NavItem({ icon, label, href, isActive, collapsed }: NavItemProps) {
 }
 
 export function Sidebar() {
-  const pathname = usePathname()
-  const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({
+  const location = useLocation();
+  const pathname = location.pathname;
+  const [openMenus, setOpenMenus] = useState({
     inventory: false,
     reports: false,
-  })
+  });
   const [collapsed, setCollapsed] = useState(false)
 
   // Determinar qué menú debe estar abierto basado en la ruta actual
@@ -73,12 +72,12 @@ export function Sidebar() {
   return (
     <aside
       className={cn(
-        "bg-[#1a2e02] text-white flex-shrink-0 hidden md:block transition-all duration-300",
+        "bg-[#1a2e02] text-white flex-shrink-0 hidden md:flex md:flex-col transition-all duration-300 h-full",
         collapsed ? "w-16" : "w-64",
       )}
     >
-      <div className="p-4 h-full flex flex-col">
-        <div className="flex items-center justify-between mb-6">
+      <div className="p-4 flex-1 flex flex-col overflow-y-auto">
+        <div className="flex items-center justify-between mb-6 flex-shrink-0">
           {!collapsed && <h2 className="text-xl font-bold">Granme</h2>}
           <Button
             variant="ghost"
@@ -91,12 +90,20 @@ export function Sidebar() {
           </Button>
         </div>
 
-        <nav className="space-y-1 flex-1">
+        <nav className="space-y-1 flex-1 overflow-y-auto">
           <NavItem
             icon={<Home className="h-5 w-5" />}
             label="Dashboard"
             href="/"
             isActive={pathname === "/"}
+            collapsed={collapsed}
+          />
+
+          <NavItem
+            icon={<Users className="h-5 w-5" />}
+            label="Usuarios"
+            href="/users"
+            isActive={pathname === "/users"}
             collapsed={collapsed}
           />
 
@@ -224,13 +231,13 @@ export function Sidebar() {
           />
         </nav>
 
-        <div className="mt-auto pt-4 border-t border-[#2a4a04]">
+        <div className="mt-auto pt-4 border-t border-[#2a4a04] flex-shrink-0">
           <Button
             variant="ghost"
             className="w-full justify-start text-white hover:bg-[#2a4a04] hover:text-white"
             asChild
           >
-            <Link href="/login">
+            <Link to="/login">
               <LogOut className={cn("h-5 w-5", collapsed ? "" : "mr-2")} />
               {!collapsed && <span>Cerrar Sesión</span>}
             </Link>

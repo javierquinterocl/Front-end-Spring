@@ -55,52 +55,130 @@ api.interceptors.response.use(
 export const userService = {
   // Registrar usuario
   register: async (userData) => {
-    
     try {
-      const response = await api.post('/users', userData);
+      // Asegurarse que los campos coincidan exactamente con el modelo del backend
+      const validatedData = {
+        idCard: userData.idCard,
+        code: userData.code,
+        firstName: userData.firstName,
+        lastName: userData.lastName,
+        email: userData.email.toLowerCase(),
+        phone: userData.phone || "", // Nota: phone no puede ser null según el modelo
+        password: userData.password
+      };
+      
+      // Endpoint para registro de usuarios
+      const response = await api.post('/users', validatedData);
       return response.data;
     } catch (error) {
+      if (error.response?.status === 500 && error.response?.data?.message?.includes('llave duplicad')) {
+        // Verificar qué campo está duplicado
+        if (error.response.data.message.includes('email')) {
+          throw new Error('El correo electrónico ya está registrado');
+        } else if (error.response.data.message.includes('id_card')) {
+          throw new Error('El número de documento ya está registrado');
+        } else if (error.response.data.message.includes('code')) {
+          throw new Error('El código de usuario ya está registrado');
+        } else {
+          throw new Error('Ya existe un usuario con algunos de los datos proporcionados');
+        }
+      }
       throw error;
     }
   },
 
   // Obtener todos los usuarios
-   getAllUsers: async () => {
-    try {
-      const response = await api.get('/users');
-      return response.data;
-    } catch (error) {
-      throw error;
-    }
+  getAllUsers: async () => {
+    const response = await api.get('/users');
+    return response.data;
   },
 
   // Obtener usuario por ID
   getUserById: async (id) => {
-    try {
-      const response = await api.get(`/users/${id}`);
-      return response.data;
-    } catch (error) {
-      throw error;
-    }
+    const response = await api.get(`/users/${id}`);
+    return response.data;
+  },
+
+  // Obtener usuario por cedula
+  getUserByIdCard: async (idCard) => {
+    const response = await api.get(`/users/idcard/${idCard}`);
+    return response.data;
+  },
+
+  // Obtener usuario por codigo
+  getUserByCode: async (code) => {
+    const response = await api.get(`/users/code/${code}`);
+    return response.data;
   },
 
   // Actualizar usuario
   updateUser: async (id, userData) => {
-    try {
-      const response = await api.put(`/users/${id}`, userData);
-      return response.data;
-    } catch (error) {
-      throw error;
-    }
+    // Asegurarnos de que phone sea string y no null según el modelo
+    const updateData = {
+      firstName: userData.firstName,
+      lastName: userData.lastName,
+      email: userData.email.toLowerCase(),
+      phone: userData.phone || "", // phone no puede ser null
+      // No incluir password en actualizaciones a menos que sea explícito
+    };
+    
+    const response = await api.put(`/users/${id}`, updateData);
+    return response.data;
+  },
+
+  // Actualizar contraseña
+  updatePassword: async (id, passwordData) => {
+    const response = await api.put(`/users/${id}/password`, {
+      password: passwordData.password
+    });
+    return response.data;
   },
 
   // Eliminar usuario
   deleteUser: async (id) => {
-    try {
-      const response = await api.delete(`/users/${id}`);
-      return response.data;
-    } catch (error) {
-      throw error;
+    const response = await api.delete(`/users/${id}`);
+    return response.data;
+  },
+  
+  // Login de usuario (versión de prueba)
+  login: async (loginData) => {
+    // Simular un retraso de red
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    // Credenciales de prueba
+    const testCredentials = {
+      email: 'admin@granme.com',
+      password: 'admin123'
+    };
+
+    // Verificar credenciales
+    if (loginData.email.toLowerCase() === testCredentials.email && 
+        loginData.password === testCredentials.password) {
+      // Simular una respuesta exitosa
+      const mockUserData = {
+        id: 1,
+        idCard: "1109244124",
+        code: "192164",
+        firstName: "Administrador",
+        lastName: "Sistema",
+        email: testCredentials.email,
+        phone: "3155072134",
+        role: "ADMIN"
+      };
+
+      const mockToken = "mock_jwt_token_" + Date.now();
+
+      // Guardar el token simulado
+      localStorage.setItem('authToken', mockToken);
+      localStorage.setItem('user', JSON.stringify(mockUserData));
+
+      return {
+        token: mockToken,
+        user: mockUserData
+      };
+    } else {
+      // Simular error de credenciales inválidas
+      throw new Error('Credenciales inválidas');
     }
   }
 };

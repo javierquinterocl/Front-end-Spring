@@ -4,19 +4,18 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Link, useNavigate } from "react-router-dom"
 import { Eye, EyeOff } from "lucide-react"
-import axios from "axios"
 import AuthLayout from "@/components/AuthLayout"
 import AuthHeader from "@/components/AuthHeader"
 import AuthCard from "@/components/AuthCard"
+import { useAuth } from "@/context/AuthContext"
 
-// Constante para la URL de la API
-const API_URL = "http://localhost:4000/api"
 
 export default function RegisterPage() {
-  const [cedula, setCedula] = useState("")
+  const { register: registerUser } = useAuth();
+  const [idCardValue, setIdCardValue] = useState("")
+  const [code, setCode] = useState("")
   const [firstName, setFirstName] = useState("")
   const [lastName, setLastName] = useState("")
-  const [surname, setSurname] = useState("")
   const [phone, setPhone] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -38,9 +37,19 @@ export default function RegisterPage() {
     setIsLoading(true)
     
     try {
-      // Validaciones básicas
-      if (!cedula || !firstName || !lastName || !surname || !email || !password || !confirmPassword) {
-        throw new Error("Todos los campos son obligatorios excepto teléfono")
+      // Validaciones básicas - todos los campos son obligatorios según el modelo
+      if (!idCardValue || !code || !firstName || !lastName || !phone || !email || !password || !confirmPassword) {
+        throw new Error("Todos los campos son obligatorios")
+      }
+      
+      // Validar formato de cédula (ejemplo colombiano)
+      if (idCardValue.length < 6 || idCardValue.length > 20) {
+        throw new Error("La cédula debe tener entre 6 y 20 caracteres")
+      }
+      
+      // Validar código
+      if (code.length < 3 || code.length > 10) {
+        throw new Error("El código debe tener entre 3 y 10 caracteres")
       }
       
       // Validar formato de email
@@ -59,15 +68,20 @@ export default function RegisterPage() {
         throw new Error("Las contraseñas no coinciden")
       }
       
-      // Preparar datos exactamente como en el script de prueba exitoso
+      // Validar teléfono (obligatorio según el modelo)
+      if (!phone || !/^[+]?[0-9]{10,15}$/.test(phone)) {
+        throw new Error("El formato del teléfono no es válido (debe tener entre 10 y 15 dígitos)")
+      }
+      
+      // Preparar datos según la estructura exacta del modelo backend
       const userData = {
-        code: cedula,
-        first_name: firstName,
-        last_name: lastName,
-        surname,
-        phone: phone || "",
-        email,
-        password
+        idCard: idCardValue,
+        code: code,
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        phone: phone || "", // El modelo requiere que phone no sea null
+        email: email.toLowerCase().trim(),
+        password: password
       }
       
       console.log("Datos preparados para enviar al backend:", {
@@ -75,76 +89,70 @@ export default function RegisterPage() {
         password: "******"
       })
       
-      // Configurar la solicitud con headers explícitos
-      const config = {
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        }
-      }
+      // Usar el servicio de registro del contexto de autenticación
+      console.log("Enviando solicitud de registro...")
+      const response = await registerUser(userData)
       
-      // Conexión directa con el backend, como en el script de prueba
-      console.log("Enviando solicitud POST directamente a:", `${API_URL}/register`)
-      const response = await axios.post(`${API_URL}/register`, userData, config)
+      console.log("Respuesta del servidor:", response)
       
-      console.log("Respuesta del servidor:", {
-        status: response.status,
-        statusText: response.statusText,
-        data: response.data
-      })
+      // Si llegamos aquí, el registro fue exitoso
+      console.log("¡Registro exitoso!")
+      setRegistrationSuccess(true)
       
-      // Verificar respuesta exitosa
-      if (response.status === 201) {
-        console.log("¡Registro exitoso!")
-        setRegistrationSuccess(true)
-        
-        // Limpiar el formulario
-        setCedula("")
-        setFirstName("")
-        setLastName("")
-        setSurname("")
-        setPhone("")
-        setEmail("")
-        setPassword("")
-        setConfirmPassword("")
-        
-        // Almacenar el indicador de registro exitoso
-        localStorage.setItem("registered", "true")
-        
-        // Redirigir después de mostrar el mensaje
-        setTimeout(() => {
-          console.log("Redirigiendo a login...")
-          navigate("/login?registered=true")
-        }, 2000)
-      } else {
-        console.warn("Respuesta inesperada del servidor:", response)
-        throw new Error("Respuesta inesperada del servidor")
-      }
+      // Limpiar el formulario
+      setIdCardValue("")
+      setCode("")
+      setFirstName("")
+      setLastName("")
+      setPhone("")
+      setEmail("")
+      setPassword("")
+      setConfirmPassword("")
+      
+      // Almacenar el indicador de registro exitoso
+      localStorage.setItem("registered", "true")
+      
+      // Redirigir después de mostrar el mensaje
+      setTimeout(() => {
+        console.log("Redirigiendo a login...")
+        // Limpiar cualquier estado de autenticación antes de redirigir
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('user');
+        navigate("/login?registered=true", { replace: true })
+      }, 2000)
       
     } catch (error) {
       console.error("Error en el proceso de registro:", error)
       
-      if (axios.isAxiosError(error)) {
-        if (!error.response) {
-          console.error("No hay respuesta del servidor - Verifica que el backend esté corriendo")
-          setError("No se puede conectar con el servidor. Verifica que el backend esté corriendo.")
+      if (error?.response) {
+        console.error("Detalles del error del servidor:", {
+          status: error.response.status,
+          data: error.response.data
+        });
+        
+        // Si es un error personalizado de nuestro servicio de API
+        if (error.message && (
+          error.message.includes('correo electrónico') ||
+          error.message.includes('documento') ||
+          error.message.includes('código')
+        )) {
+          setError(error.message);
         } else {
-          console.error("Detalles del error del servidor:", {
-            status: error.response.status,
-            data: error.response.data
-          })
-          
-          // Mensajes de error específicos
+          // Otros tipos de errores del servidor
           switch (error.response.status) {
             case 400:
               setError("Datos de registro inválidos. Por favor verifica la información.")
-              break
+              break;
             case 409:
-              setError("El usuario ya existe. Por favor intenta con otro correo electrónico.")
-              break
+              setError("El usuario ya existe. Por favor intenta con otros datos (email, cédula o código).")
+              break;
             case 500:
-              setError("Error interno del servidor. Por favor intenta más tarde.")
-              break
+              if (error.response.data?.message?.includes('llave duplicad')) {
+                setError("Ya existe un usuario con algunos de los datos proporcionados. Por favor verifica el correo, código o número de documento.");
+              } else {
+                setError("Error interno del servidor. Por favor intenta más tarde.")
+              }
+              break;
             default:
               setError(error.response.data.message || "Error en el registro")
           }
@@ -191,14 +199,28 @@ export default function RegisterPage() {
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
-            <Label htmlFor="cedula" className="text-sm font-semibold text-[#1a2e02] mb-2 block">
-              Cédula
+            <Label htmlFor="idCard" className="text-sm font-semibold text-[#1a2e02] mb-2 block">
+              Cédula / Documento de Identidad
             </Label>
             <Input
-              id="cedula"
-              value={cedula}
-              onChange={(e) => setCedula(e.target.value)}
-              placeholder="Ingrese su cédula"
+              id="idCard"
+              value={idCardValue}
+              onChange={(e) => setIdCardValue(e.target.value)}
+              placeholder="Ingrese su número de cédula"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#6b7c45] focus:border-transparent transition-all duration-200"
+              required
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="code" className="text-sm font-semibold text-[#1a2e02] mb-2 block">
+              Código de Usuario
+            </Label>
+            <Input
+              id="code"
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              placeholder="Ingrese un código único (3-10 caracteres)"
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#6b7c45] focus:border-transparent transition-all duration-200"
               required
             />
@@ -206,27 +228,27 @@ export default function RegisterPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="primer-nombre" className="text-sm font-semibold text-[#1a2e02] mb-2 block">
-                Primer nombre
+              <Label htmlFor="firstName" className="text-sm font-semibold text-[#1a2e02] mb-2 block">
+                Nombres
               </Label>
               <Input
-                id="primer-nombre"
+                id="firstName"
                 value={firstName}
                 onChange={(e) => setFirstName(e.target.value)}
-                placeholder="Primer nombre"
+                placeholder="Ingrese sus nombres"
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#6b7c45] focus:border-transparent transition-all duration-200"
                 required
               />
             </div>
             <div>
-              <Label htmlFor="segundo-nombre" className="text-sm font-semibold text-[#1a2e02] mb-2 block">
-                Segundo nombre
+              <Label htmlFor="lastName" className="text-sm font-semibold text-[#1a2e02] mb-2 block">
+                Apellidos
               </Label>
               <Input
-                id="segundo-nombre"
+                id="lastName"
                 value={lastName}
                 onChange={(e) => setLastName(e.target.value)}
-                placeholder="Segundo nombre"
+                placeholder="Ingrese sus apellidos"
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#6b7c45] focus:border-transparent transition-all duration-200"
                 required
               />
@@ -234,29 +256,16 @@ export default function RegisterPage() {
           </div>
 
           <div>
-            <Label htmlFor="apellido" className="text-sm font-semibold text-[#1a2e02] mb-2 block">
-              Apellido
-            </Label>
-            <Input
-              id="apellido"
-              value={surname}
-              onChange={(e) => setSurname(e.target.value)}
-              placeholder="Ingrese su apellido"
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#6b7c45] focus:border-transparent transition-all duration-200"
-              required
-            />
-          </div>
-
-          <div>
             <Label htmlFor="telefono" className="text-sm font-semibold text-[#1a2e02] mb-2 block">
-              Teléfono <span className="text-gray-500 font-normal">(opcional)</span>
+              Teléfono
             </Label>
             <Input
               id="telefono"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
-              placeholder="Ingrese su teléfono"
+              placeholder="Ingrese su teléfono (obligatorio)"
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#6b7c45] focus:border-transparent transition-all duration-200"
+              required
             />
           </div>
 
