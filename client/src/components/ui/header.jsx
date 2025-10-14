@@ -1,7 +1,7 @@
 import { Bell, HelpCircle, Menu, Moon, Search, Settings, Sun, User, LogOut } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useState, useEffect } from "react"
-import { useTheme } from "next-themes"
+import { useTheme } from "@/components/ui/theme-provider"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,15 +13,13 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
-import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { Link, useNavigate } from "react-router-dom"
 
-export function Header() {
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+export function Header({ toggleSidebar }) {
   const { setTheme, theme } = useTheme()
   const [mounted, setMounted] = useState(false)
-  const [user, setUser] = useState<{ name; email } | null>(null)
-  const router = useRouter()
+  const [user, setUser] = useState(null)
+  const navigate = useNavigate()
 
   // Evitar problemas de hidratación
   useEffect(() => {
@@ -42,7 +40,8 @@ export function Header() {
   // Función para cerrar sesión
   const handleLogout = () => {
     localStorage.removeItem("user")
-    router.push("/login")
+    localStorage.removeItem("authToken")
+    navigate("/login")
   }
 
   // Obtener iniciales para el avatar
@@ -57,14 +56,14 @@ export function Header() {
   }
 
   return (
-    <header className="bg-[#6b7c45] text-white p-4 sticky top-0 z-50 shadow-md">
-      <div className="container mx-auto flex justify-between items-center">
+    <header className="bg-[#6b7c45] text-white px-4 py-3 sticky top-0 z-50 shadow-md">
+      <div className="w-full max-w-[1400px] mx-auto flex justify-between items-center gap-4">
         <div className="flex items-center gap-2">
           <Button
             variant="ghost"
             size="icon"
             className="md:hidden text-white hover:bg-[#5a6a3a] hover:text-white"
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            onClick={toggleSidebar}
           >
             <Menu className="h-6 w-6" />
             <span className="sr-only">Menú</span>
@@ -158,7 +157,7 @@ export function Header() {
             <DropdownMenuLabel>Mi Cuenta</DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild>
-              <Link href="/profile">
+              <Link to="/profile">
                 <User className="mr-2 h-4 w-4" />
                 <span>Mi Cuenta</span>
               </Link>

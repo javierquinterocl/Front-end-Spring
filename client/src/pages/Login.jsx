@@ -4,13 +4,11 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Link, useNavigate } from "react-router-dom"
 import { Eye, EyeOff } from "lucide-react"
-import axios from "axios"
 import AuthLayout from "@/components/AuthLayout"
 import AuthHeader from "@/components/AuthHeader"
 import AuthCard from "@/components/AuthCard"
-
-// Constante para la URL de la API
-const API_URL = "http://localhost:4000/api"
+import { useAuth } from "@/context/AuthContext"
+import { useToast } from "@/components/ui/use-toast"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
@@ -19,8 +17,17 @@ export default function LoginPage() {
   const [error, setError] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [registeredMessage, setRegisteredMessage] = useState("")
-
+  const { login, isAuthenticated } = useAuth()
+  const { toast } = useToast()
+  
   const navigate = useNavigate()
+  
+  // Redireccionar si el usuario ya está autenticado
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate("/dashboard");
+    }
+  }, [isAuthenticated, navigate]);
 
   useEffect(() => {
     // Verificar si el usuario viene del registro exitoso
@@ -53,68 +60,37 @@ export default function LoginPage() {
         password
       }
 
-      console.log("Iniciando sesión...")
-
-      // Configurar la solicitud
-      const config = {
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        }
-      }
-
-      // Enviar solicitud de login
-      const response = await axios.post(`${API_URL}/login`, loginData, config)
-
-      console.log("Respuesta del servidor:", {
-        status: response.status,
-        data: response.data
-      })
-
-      if (response.status === 200) {
-        console.log("¡Login exitoso!")
-        
-        // Guardar token en localStorage
-        if (response.data.token) {
-          localStorage.setItem('token', response.data.token)
-        }
-
-        // Limpiar el formulario
-        setEmail("")
-        setPassword("")
-        
-        // Redirigir al dashboard o página principal
-        navigate("/dashboard")
-      } else {
-        throw new Error("Respuesta inesperada del servidor")
-      }
+      // Usar la función login del contexto de autenticación
+      await login(loginData);
+      
+      // Mostrar notificación de éxito
+      toast({
+        title: "Inicio de sesión exitoso",
+        description: "Bienvenido al sistema Granme",
+        variant: "success",
+      });
+      
+      // La redirección ocurre automáticamente gracias al useEffect que observa isAuthenticated
 
     } catch (error) {
       console.error("Error en el login:", error)
       
-      if (axios.isAxiosError(error)) {
-        if (!error.response) {
-          setError("No se puede conectar con el servidor. Verifica que el backend esté corriendo.")
-        } else {
-          switch (error.response.status) {
-            case 401:
-              setError("Credenciales inválidas. Verifica tu email y contraseña.")
-              break
-            case 400:
-              setError("Datos de login inválidos.")
-              break
-            case 500:
-              setError("Error interno del servidor. Intenta más tarde.")
-              break
-            default:
-              setError(error.response.data.message || "Error en el login")
-          }
-        }
+      if (error.response?.status === 401) {
+        setError("Credenciales incorrectas. Verifique su correo y contraseña.")
+      } else if (error.response?.data?.message) {
+        setError(error.response.data.message)
       } else if (error instanceof Error) {
         setError(error.message)
       } else {
         setError("Ha ocurrido un error inesperado durante el login")
       }
+      
+      // Mostrar notificación de error
+      toast({
+        title: "Error de inicio de sesión",
+        description: error.response?.data?.message || "No se pudo iniciar sesión. Verifique sus credenciales.",
+        variant: "destructive",
+      });
     } finally {
       setIsLoading(false)
     }
