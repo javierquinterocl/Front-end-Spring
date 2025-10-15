@@ -140,45 +140,37 @@ export const userService = {
     return response.data;
   },
   
-  // Login de usuario (versión de prueba)
+  // Login de usuario
   login: async (loginData) => {
-    // Simular un retraso de red
-    await new Promise(resolve => setTimeout(resolve, 500));
+    try {
+      // Llamar al endpoint real del backend
+      const response = await api.post('/users/login', {
+        email: loginData.email.toLowerCase(),
+        password: loginData.password
+      });
 
-    // Credenciales de prueba
-    const testCredentials = {
-      email: 'admin@granme.com',
-      password: 'admin123'
-    };
+      // El backend devuelve un UserResponse con los datos del usuario
+      const userData = response.data;
 
-    // Verificar credenciales
-    if (loginData.email.toLowerCase() === testCredentials.email && 
-        loginData.password === testCredentials.password) {
-      // Simular una respuesta exitosa
-      const mockUserData = {
-        id: 1,
-        idCard: "1109244124",
-        code: "192164",
-        firstName: "Administrador",
-        lastName: "Sistema",
-        email: testCredentials.email,
-        phone: "3155072134",
-        role: "ADMIN"
-      };
+      // Generar un token básico (mientras no hay JWT en el backend)
+      const mockToken = "basic_token_" + Date.now();
 
-      const mockToken = "mock_jwt_token_" + Date.now();
-
-      // Guardar el token simulado
+      // Guardar el token y los datos del usuario
       localStorage.setItem('authToken', mockToken);
-      localStorage.setItem('user', JSON.stringify(mockUserData));
+      localStorage.setItem('user', JSON.stringify(userData));
 
       return {
         token: mockToken,
-        user: mockUserData
+        user: userData
       };
-    } else {
-      // Simular error de credenciales inválidas
-      throw new Error('Credenciales inválidas');
+    } catch (error) {
+      // Manejar errores de autenticación
+      if (error.response?.status === 401 || error.response?.status === 404) {
+        throw new Error('Credenciales inválidas');
+      } else if (error.response?.status === 500) {
+        throw new Error('Error en el servidor. Intente nuevamente');
+      }
+      throw new Error(error.response?.data?.message || 'Error al iniciar sesión');
     }
   }
 };
