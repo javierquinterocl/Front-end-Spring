@@ -161,11 +161,9 @@ export function Sidebar() {
               <CollapsibleContent className="pl-6 space-y-1">
                 <NavItem
                   icon={<ShoppingCart className="h-5 w-5" />}
-                  label="Producto"
-                  href="/inventory?tab=movements"
-                  isActive={
-                    pathname === "/inventory" && new URLSearchParams(window.location.search).get("tab") === "movements"
-                  }
+                  label="Productos"
+                  href="/products"
+                  isActive={pathname === "/products"}
                   collapsed={collapsed}
                 />
               </CollapsibleContent>
