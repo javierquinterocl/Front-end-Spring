@@ -5,6 +5,7 @@ import ForgotPasswordPage from './pages/ForgotPassword'
 import ResetPasswordPage from './pages/ResetPassword'
 import { ThemeProvider } from './components/ui/theme-provider'
 import UsersListPage from './pages/UsersList'
+import ProductsListPage from './pages/ProductsList'
 import Dashboard from './pages/Dashboard'
 import { Toaster } from './components/ui/toaster'
 import { ProtectedRoute } from './components/ui/ProtectedRoute'
@@ -26,6 +27,7 @@ function App() {
             <Route path="/" element={<Dashboard />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/users" element={<UsersListPage />} />
+            <Route path="/products" element={<ProductsListPage />} />
             <Route path="/profile" element={<div>Perfil del Usuario</div>} />
             <Route path="/suppliers" element={<div>Gestión de Proveedores</div>} />
             <Route path="/employees" element={<div>Gestión de Empleados</div>} />
