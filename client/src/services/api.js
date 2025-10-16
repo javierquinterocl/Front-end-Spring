@@ -175,4 +175,71 @@ export const userService = {
   }
 };
 
+// Servicios de la API para Productos
+export const productService = {
+  // Crear producto
+  createProduct: async (productData) => {
+    try {
+      // Asegurarse que los campos coincidan exactamente con ProductRequest del backend
+      const validatedData = {
+        productId: productData.productId,
+        name: productData.name,
+        description: productData.description || "",
+        unitPrice: productData.unitPrice,
+        stock: productData.stock,
+        productType: productData.productType
+      };
+      
+      // Endpoint para crear producto
+      const response = await api.post('/products', validatedData);
+      return response.data;
+    } catch (error) {
+      if (error.response?.status === 500 && error.response?.data?.message?.includes('llave duplicad')) {
+        // Verificar qué campo está duplicado
+        if (error.response.data.message.includes('product_id')) {
+          throw new Error('El ID del producto ya está registrado');
+        } else if (error.response.data.message.includes('name')) {
+          throw new Error('El nombre del producto ya está registrado');
+        } else {
+          throw new Error('Ya existe un producto con algunos de los datos proporcionados');
+        }
+      }
+      throw error;
+    }
+  },
+
+  // Obtener todos los productos
+  getAllProducts: async () => {
+    const response = await api.get('/products');
+    return response.data;
+  },
+
+  // Obtener producto por ID
+  getProductById: async (id) => {
+    const response = await api.get(`/products/${id}`);
+    return response.data;
+  },
+
+  // Actualizar producto
+  updateProduct: async (id, productData) => {
+    const updateData = {
+      productId: productData.productId,
+      name: productData.name,
+      description: productData.description || "",
+      unitPrice: productData.unitPrice,
+      stock: productData.stock,
+      productType: productData.productType
+    };
+    
+    const response = await api.put(`/products/${id}`, updateData);
+    return response.data;
+  },
+
+  // Eliminar producto
+  deleteProduct: async (id) => {
+    const response = await api.delete(`/products/${id}`);
+    return response.data;
+  }
+};
+
 export default api;
