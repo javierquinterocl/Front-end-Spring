@@ -2,6 +2,7 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Link, useNavigate } from "react-router-dom"
 import { Eye, EyeOff } from "lucide-react"
 import AuthLayout from "@/components/AuthLayout"
@@ -20,6 +21,7 @@ export default function RegisterPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
+  const [role, setRole] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [error, setError] = useState("")
@@ -38,11 +40,11 @@ export default function RegisterPage() {
     
     try {
       // Validaciones básicas - todos los campos son obligatorios según el modelo
-      if (!idCardValue || !code || !firstName || !lastName || !phone || !email || !password || !confirmPassword) {
+      if (!idCardValue || !code || !firstName || !lastName || !phone || !email || !password || !confirmPassword || !role) {
         throw new Error("Todos los campos son obligatorios")
       }
       
-      // Validar formato de cédula (ejemplo colombiano)
+      // Validar formato de cédula 
       if (idCardValue.length < 6 || idCardValue.length > 20) {
         throw new Error("La cédula debe tener entre 6 y 20 caracteres")
       }
@@ -79,9 +81,10 @@ export default function RegisterPage() {
         code: code,
         firstName: firstName.trim(),
         lastName: lastName.trim(),
-        phone: phone || "", // El modelo requiere que phone no sea null
+        phone: phone || "", 
         email: email.toLowerCase().trim(),
-        password: password
+        password: password,
+        role: role
       }
       
       console.log("Datos preparados para enviar al backend:", {
@@ -89,13 +92,13 @@ export default function RegisterPage() {
         password: "******"
       })
       
-      // Usar el servicio de registro del contexto de autenticación
+      
       console.log("Enviando solicitud de registro...")
       const response = await registerUser(userData)
       
       console.log("Respuesta del servidor:", response)
       
-      // Si llegamos aquí, el registro fue exitoso
+     
       console.log("¡Registro exitoso!")
       setRegistrationSuccess(true)
       
@@ -108,6 +111,7 @@ export default function RegisterPage() {
       setEmail("")
       setPassword("")
       setConfirmPassword("")
+      setRole("")
       
       // Almacenar el indicador de registro exitoso
       localStorage.setItem("registered", "true")
@@ -267,6 +271,25 @@ export default function RegisterPage() {
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#6b7c45] focus:border-transparent transition-all duration-200"
               required
             />
+          </div>
+
+          <div>
+            <Label htmlFor="role" className="text-sm font-semibold text-[#1a2e02] mb-2 block">
+              Tipo de Usuario
+            </Label>
+            <Select value={role} onValueChange={setRole} required>
+              <SelectTrigger className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#6b7c45] focus:border-transparent transition-all duration-200">
+                <SelectValue placeholder="Seleccione el tipo de usuario" />
+              </SelectTrigger>
+              <SelectContent className="bg-white">
+                <SelectItem value="ADMIN" className="cursor-pointer hover:bg-gray-100">
+                  Administrador
+                </SelectItem>
+                <SelectItem value="PRACTICANTE" className="cursor-pointer hover:bg-gray-100">
+                  Practicante
+                </SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <div>

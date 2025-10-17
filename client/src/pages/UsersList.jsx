@@ -55,7 +55,8 @@ export default function UsersListPage() {
       email: raw.email || raw.correo || '',
       code: raw.code || raw.codigo || raw.userCode || '',
       idCard: raw.idCard || raw.id_card || raw.cedula || raw.document || '',
-      phone: raw.phone || raw.telefono || raw.celular || ''
+      phone: raw.phone || raw.telefono || raw.celular || '',
+      role: raw.role || raw.rol || 'PRACTICANTE' // Rol del usuario
     }
   }
 
@@ -327,6 +328,9 @@ export default function UsersListPage() {
                   <SortButton colKey="email">Email</SortButton>
                 </TableHead>
                 <TableHead className="font-medium text-gray-600">
+                  <SortButton colKey="role">Rol</SortButton>
+                </TableHead>
+                <TableHead className="font-medium text-gray-600">
                   <SortButton colKey="code">Código</SortButton>
                 </TableHead>
                 <TableHead className="font-medium text-gray-600">
@@ -339,14 +343,14 @@ export default function UsersListPage() {
             <TableBody>
               {isLoading && users.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={7} className="h-32 text-center text-gray-500">
+                  <TableCell colSpan={8} className="h-32 text-center text-gray-500">
                     Cargando usuarios...
                   </TableCell>
                 </TableRow>
               )}
               {!isLoading && pageData.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={7} className="h-32 text-center text-gray-500">
+                  <TableCell colSpan={8} className="h-32 text-center text-gray-500">
                     No se encontraron usuarios
                   </TableCell>
                 </TableRow>
@@ -356,6 +360,15 @@ export default function UsersListPage() {
                   <TableCell className="font-medium text-gray-900">{user.id}</TableCell>
                   <TableCell className="text-gray-700">{user.fullName}</TableCell>
                   <TableCell className="text-gray-600">{user.email || '-'}</TableCell>
+                  <TableCell>
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                      user.role === 'ADMIN' 
+                        ? 'bg-purple-100 text-purple-800' 
+                        : 'bg-blue-100 text-blue-800'
+                    }`}>
+                      {user.role}
+                    </span>
+                  </TableCell>
                   <TableCell className="text-gray-600">{user.code || '-'}</TableCell>
                   <TableCell className="text-gray-600">{user.idCard || '-'}</TableCell>
                   <TableCell className="text-gray-600">{user.phone || '-'}</TableCell>
@@ -461,6 +474,18 @@ export default function UsersListPage() {
                 <div>
                   <Label className="text-sm font-medium text-gray-500">Teléfono</Label>
                   <p className="text-sm mt-1">{viewDialog.user.phone || 'N/A'}</p>
+                </div>
+              </div>
+              <div>
+                <Label className="text-sm font-medium text-gray-500">Rol</Label>
+                <div className="mt-1">
+                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                    viewDialog.user.role === 'ADMIN' 
+                      ? 'bg-purple-100 text-purple-800' 
+                      : 'bg-blue-100 text-blue-800'
+                  }`}>
+                    {viewDialog.user.role}
+                  </span>
                 </div>
               </div>
             </div>

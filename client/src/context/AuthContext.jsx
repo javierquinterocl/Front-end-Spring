@@ -3,6 +3,7 @@ import { userService } from '@/services/api';
 
 const AuthContext = createContext();
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
@@ -37,7 +38,6 @@ export const AuthProvider = ({ children }) => {
             setIsAuthenticated(false);
           }
         } else {
-          // Si no hay token o datos de usuario, asegurarse de que el estado refleje esto
           setUser(null);
           setIsAuthenticated(false);
         }
@@ -56,19 +56,19 @@ export const AuthProvider = ({ children }) => {
     checkAuthStatus();
   }, []);
 
-  // Función para registrar un usuario
+  // Funcion para registrar un usuario
   const register = async (userData) => {
     try {
       setIsLoading(true);
       
-      // Validar datos antes de enviar para que coincida con el modelo del backend
+      
       const registrationData = {
         idCard: userData.idCard?.trim(),
         code: userData.code?.trim(),
         firstName: userData.firstName?.trim(),
         lastName: userData.lastName?.trim(),
         email: userData.email?.toLowerCase().trim(),
-        phone: userData.phone?.trim() || "", // No puede ser null según el modelo
+        phone: userData.phone?.trim() || "", 
         password: userData.password
       };
       
@@ -84,7 +84,7 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Función para hacer login
+  // Funcion para hacer login
   const login = async (credentials) => {
     try {
       setIsLoading(true);
@@ -104,8 +104,7 @@ export const AuthProvider = ({ children }) => {
         
         console.log('Login exitoso', response.user);
         
-        // Verificar si el usuario tiene un rol en particular para dirigirlo a diferentes rutas
-        // Por ejemplo: if (response.user.role === 'ADMIN') { ... }
+        
         
       } else {
         throw new Error('No se recibió un token de autenticación válido');
@@ -131,14 +130,20 @@ export const AuthProvider = ({ children }) => {
   };
 
   // Función para hacer logout
-  const logout = () => {
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('user');
-    setUser(null);
-    setIsAuthenticated(false);
+  const logout = async () => {
+    try {
+      // Invalidar token en el servidor
+      await userService.logout();
+    } catch (error) {
+      console.error('Error durante el logout:', error);
+    } finally {
+      // Limpiar estado local siempre
+      setUser(null);
+      setIsAuthenticated(false);
+    }
   };
 
-  // Función para actualizar datos del usuario
+  // Funcion para actualizar datos del usuario
   const updateUser = async (userId, userData) => {
     try {
       setIsLoading(true);
@@ -148,7 +153,7 @@ export const AuthProvider = ({ children }) => {
         firstName: userData.firstName?.trim(),
         lastName: userData.lastName?.trim(),
         email: userData.email?.toLowerCase().trim(),
-        phone: userData.phone?.trim() || "" // No puede ser null según el modelo
+        phone: userData.phone?.trim() || "" 
       };
       
       const response = await userService.updateUser(userId, updateData);
@@ -169,11 +174,10 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Función para obtener todos los usuarios (para administradores)
-  // Memoizada para no cambiar referencia en cada render y evitar loops en componentes que dependan de ella
+  
   const getAllUsers = useCallback(async () => {
     try {
-      // No usamos setIsLoading global aquí para no bloquear toda la app ni provocar rerenders masivos
+      
       const response = await userService.getAllUsers();
       return response;
     } catch (error) {
