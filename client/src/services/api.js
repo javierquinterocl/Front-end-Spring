@@ -16,12 +16,25 @@ const api = axios.create({
 // Interceptor para requests
 api.interceptors.request.use(
   (config) => {
-    // Aquí puedes agregar tokens de autenticacion si los tienes
-    const token = localStorage.getItem('authToken');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+    // Rutas públicas que no requieren autenticación (ruta + método HTTP)
+    const publicEndpoints = [
+      { url: '/users/login', method: 'POST' },   // Login
+      { url: '/users', method: 'POST' }          // Registro
+    ];
+    
+    // Verificar si es una ruta pública (comparar URL y método)
+    const isPublicRoute = publicEndpoints.some(endpoint => 
+      config.url?.includes(endpoint.url) && config.method?.toUpperCase() === endpoint.method
+    );
+    
+    // Solo agregar token si NO es una ruta pública
+    if (!isPublicRoute) {
+      const token = localStorage.getItem('authToken');
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
     }
-    console.log('Enviando request:', config.method?.toUpperCase(), config.url);
+    
     return config;
   },
   (error) => {
@@ -64,7 +77,8 @@ export const userService = {
         lastName: userData.lastName,
         email: userData.email.toLowerCase(),
         phone: userData.phone || "", // Nota: phone no puede ser null según el modelo
-        password: userData.password
+        password: userData.password,
+        role: userData.role || "PRACTICANTE" // Valor por defecto si no se especifica
       };
       
       // Endpoint para registro de usuarios
@@ -149,19 +163,16 @@ export const userService = {
         password: loginData.password
       });
 
-      // El backend devuelve un UserResponse con los datos del usuario
-      const userData = response.data;
+      // El backend devuelve AuthenticationResponse { token: string, user: UserResponse }
+      const { token, user } = response.data;
 
-      // Generar un token básico (mientras no hay JWT en el backend)
-      const mockToken = "basic_token_" + Date.now();
-
-      // Guardar el token y los datos del usuario
-      localStorage.setItem('authToken', mockToken);
-      localStorage.setItem('user', JSON.stringify(userData));
+      // Guardar el token JWT y los datos del usuario
+      localStorage.setItem('authToken', token);
+      localStorage.setItem('user', JSON.stringify(user));
 
       return {
-        token: mockToken,
-        user: userData
+        token: token,
+        user: user
       };
     } catch (error) {
       // Manejar errores de autenticación
@@ -172,6 +183,24 @@ export const userService = {
       }
       throw new Error(error.response?.data?.message || 'Error al iniciar sesión');
     }
+  },
+
+  // Logout de usuario (invalidar token en el servidor)
+  logout: async () => {
+    try {
+      const token = localStorage.getItem('authToken');
+      if (token) {
+        // Llamar al backend para invalidar el token
+        await api.post('/users/logout');
+      }
+    } catch (error) {
+      // Si hay error al invalidar en el servidor, continuar con logout local
+      console.error('Error al invalidar token en el servidor:', error);
+    } finally {
+      // Siempre limpiar el localStorage
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('user');
+    }
   }
 };
 
@@ -180,7 +209,7 @@ export const productService = {
   // Crear producto
   createProduct: async (productData) => {
     try {
-      // Asegurarse que los campos coincidan exactamente con ProductRequest del backend
+      
       const validatedData = {
         productId: productData.productId,
         name: productData.name,
@@ -195,7 +224,7 @@ export const productService = {
       return response.data;
     } catch (error) {
       if (error.response?.status === 500 && error.response?.data?.message?.includes('llave duplicad')) {
-        // Verificar qué campo está duplicado
+       
         if (error.response.data.message.includes('product_id')) {
           throw new Error('El ID del producto ya está registrado');
         } else if (error.response.data.message.includes('name')) {
