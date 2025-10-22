@@ -270,5 +270,80 @@ export const productService = {
     return response.data;
   }
 };
+// ############### Servicios de la API para Proveedores ##############################
+export const supplierService = {
+  // Crear proveedor
+  createSupplier: async (supplierData) => {
+    try {
+      const validatedData = {
+        supplierId: supplierData.supplierId,
+        name: supplierData.name,
+        phone: supplierData.phone,
+        email: supplierData.email,
+        cityId: supplierData.cityId,
+        stateId: supplierData.stateId,
+        countryId: supplierData.countryId,
+        nit: supplierData.nit,
+        address: supplierData.address || ""
+      };
+
+      // Endpoint para crear proveedor
+      const response = await api.post('/suppliers', validatedData);
+      return response.data;
+    } catch (error) {
+      if (
+        error.response?.status === 500 &&
+        error.response?.data?.message?.includes('llave duplicada')
+      ) {
+        if (error.response.data.message.includes('supplier_id')) {
+          throw new Error('El ID del proveedor ya está registrado');
+        } else if (error.response.data.message.includes('email')) {
+          throw new Error('El correo electrónico ya está registrado');
+        } else if (error.response.data.message.includes('nit')) {
+          throw new Error('El NIT ya está registrado');
+        } else {
+          throw new Error('Ya existe un proveedor con algunos de los datos proporcionados');
+        }
+      }
+      throw error;
+    }
+  },
+
+  // Obtener todos los proveedores
+  getAllSuppliers: async () => {
+    const response = await api.get('/suppliers');
+    return response.data;
+  },
+
+  // Obtener proveedor por ID
+  getSupplierById: async (id) => {
+    const response = await api.get(`/suppliers/${id}`);
+    return response.data;
+  },
+
+  // Actualizar proveedor
+  updateSupplier: async (id, supplierData) => {
+    const updateData = {
+      supplierId: supplierData.supplierId,
+      name: supplierData.name,
+      phone: supplierData.phone,
+      email: supplierData.email,
+      cityId: supplierData.cityId,
+      stateId: supplierData.stateId,
+      countryId: supplierData.countryId,
+      nit: supplierData.nit,
+      address: supplierData.address || ""
+    };
+
+    const response = await api.put(`/suppliers/${id}`, updateData);
+    return response.data;
+  },
+
+  // Eliminar proveedor
+  deleteSupplier: async (id) => {
+    const response = await api.delete(`/suppliers/${id}`);
+    return response.data;
+  }
+};
 
 export default api;
