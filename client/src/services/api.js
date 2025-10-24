@@ -346,4 +346,85 @@ export const supplierService = {
   }
 };
 
+// ############### Servicios de la API para Cabras (Goats) ##############################
+export const goatService = {
+  // Crear cabra
+  createGoat: async (goatData) => {
+    try {
+      const validatedData = {
+        goatId: goatData.goatId,
+        name: goatData.name,
+        breed: goatData.breed,
+        birthDate: goatData.birthDate,
+        gender: goatData.gender,
+        goatType: goatData.goatType || "LEVANTE",
+        weight: goatData.weight || 0,
+        milkProduction: goatData.milkProduction || 0,
+        foodConsumption: goatData.foodConsumption || 0,
+        vaccinationsCount: goatData.vaccinationsCount || 0,
+        heatPeriods: goatData.heatPeriods || 0,
+        offspringCount: goatData.offspringCount || 0,
+        parentId: goatData.parentId || null,
+        status: goatData.status || "ACTIVE",
+        notes: goatData.notes || ""
+      };
+
+      // Endpoint para crear cabra
+      const response = await api.post('/goats', validatedData);
+      return response.data;
+    } catch (error) {
+      if (error.response?.status === 500 && error.response?.data?.message?.includes('llave duplicada')) {
+        if (error.response.data.message.includes('goat_id')) {
+          throw new Error('El ID de la cabra ya está registrado');
+        } else {
+          throw new Error('Ya existe una cabra con algunos de los datos proporcionados');
+        }
+      }
+      throw error;
+    }
+  },
+
+  // Obtener todas las cabras
+  getAllGoats: async () => {
+    const response = await api.get('/goats');
+    return response.data;
+  },
+
+  // Obtener cabra por ID
+  getGoatById: async (id) => {
+    const response = await api.get(`/goats/${id}`);
+    return response.data;
+  },
+
+  // Actualizar cabra
+  updateGoat: async (id, goatData) => {
+    const updateData = {
+      goatId: goatData.goatId,
+      name: goatData.name,
+      breed: goatData.breed,
+      birthDate: goatData.birthDate,
+      gender: goatData.gender,
+      goatType: goatData.goatType || "LEVANTE",
+      weight: goatData.weight || 0,
+      milkProduction: goatData.milkProduction || 0,
+      foodConsumption: goatData.foodConsumption || 0,
+      vaccinationsCount: goatData.vaccinationsCount || 0,
+      heatPeriods: goatData.heatPeriods || 0,
+      offspringCount: goatData.offspringCount || 0,
+      parentId: goatData.parentId || null,
+      status: goatData.status || "ACTIVE",
+      notes: goatData.notes || ""
+    };
+
+    const response = await api.put(`/goats/${id}`, updateData);
+    return response.data;
+  },
+
+  // Eliminar cabra
+  deleteGoat: async (id) => {
+    const response = await api.delete(`/goats/${id}`);
+    return response.data;
+  }
+};
+
 export default api;

@@ -1,26 +1,75 @@
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/context/AuthContext";
+import { userService, supplierService, productService, goatService } from "@/services/api";
+import { useToast } from "@/components/ui/use-toast";
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [stats, setStats] = useState({
     totalUsers: 0,
     totalSuppliers: 0,
-    totalEmployees: 0,
+    totalGoats: 0,
     totalProducts: 0
   });
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Aquí podrías cargar estadísticas reales desde tu API
-    // Por ahora usaremos datos de ejemplo
-    setStats({
-      totalUsers: 25,
-      totalSuppliers: 12,
-      totalEmployees: 8,
-      totalProducts: 34
-    });
-  }, []);
+    const loadStats = async () => {
+      try {
+        setLoading(true);
+        
+        // Cargar todas las estadísticas en paralelo
+        const [users, suppliers, goats, products] = await Promise.all([
+          userService.getAllUsers().catch((err) => {
+            console.log('Error loading users:', err);
+            return [];
+          }),
+          supplierService.getAllSuppliers().catch((err) => {
+            console.log('Error loading suppliers:', err);
+            return [];
+          }),
+          goatService.getAllGoats().catch((err) => {
+            console.log('Error loading goats:', err);
+            return [];
+          }),
+          productService.getAllProducts().catch((err) => {
+            console.log('Error loading products:', err);
+            return [];
+          })
+        ]);
+
+        console.log('Dashboard data:', {
+          users,
+          suppliers,
+          goats,
+          products
+        });
+
+        const newStats = {
+          totalUsers: users?.length || 0,
+          totalSuppliers: suppliers?.length || 0,
+          totalGoats: goats?.length || 0,
+          totalProducts: products?.length || 0
+        };
+
+        console.log('Setting stats to:', newStats);
+        setStats(newStats);
+      } catch (error) {
+        console.error('Error loading dashboard stats:', error);
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "No se pudieron cargar las estadísticas del dashboard"
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadStats();
+  }, [toast]);
 
   return (
     <div className="space-y-6">
@@ -35,13 +84,15 @@ export default function Dashboard() {
         <Card className="bg-white">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-gray-500">
-              Usuarios Totales
+              Empleados
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-[#1a2e02]">{stats.totalUsers}</div>
+            <div className="text-3xl font-bold text-[#1a2e02]">
+              {loading ? '...' : stats.totalUsers}
+            </div>
             <p className="text-xs text-gray-500 mt-1">
-              +3% que el mes pasado
+              Total registrados
             </p>
           </CardContent>
         </Card>
@@ -53,9 +104,11 @@ export default function Dashboard() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-[#1a2e02]">{stats.totalSuppliers}</div>
+            <div className="text-3xl font-bold text-[#1a2e02]">
+              {loading ? '...' : stats.totalSuppliers}
+            </div>
             <p className="text-xs text-gray-500 mt-1">
-              +2 nuevos esta semana
+              Proveedores activos
             </p>
           </CardContent>
         </Card>
@@ -63,13 +116,15 @@ export default function Dashboard() {
         <Card className="bg-white">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-gray-500">
-              Empleados
+              Registro Caprino
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-[#1a2e02]">{stats.totalEmployees}</div>
+            <div className="text-3xl font-bold text-[#1a2e02]">
+              {loading ? '...' : stats.totalGoats}
+            </div>
             <p className="text-xs text-gray-500 mt-1">
-              Total en planilla
+              Cabras registradas
             </p>
           </CardContent>
         </Card>
@@ -81,7 +136,9 @@ export default function Dashboard() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-[#1a2e02]">{stats.totalProducts}</div>
+            <div className="text-3xl font-bold text-[#1a2e02]">
+              {loading ? '...' : stats.totalProducts}
+            </div>
             <p className="text-xs text-gray-500 mt-1">
               En inventario actual
             </p>

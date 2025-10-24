@@ -7,6 +7,7 @@ import { ThemeProvider } from './components/ui/theme-provider'
 import UsersListPage from './pages/UsersList'
 import ProductsListPage from './pages/ProductsList'
 import SuppliersListPage from './pages/SupplierList'
+import GoatsListPage from './pages/GoatsList'
 import Dashboard from './pages/Dashboard'
 import { Toaster } from './components/ui/toaster'
 import { ProtectedRoute } from './components/ui/ProtectedRoute'
@@ -30,8 +31,8 @@ function App() {
             <Route path="/users" element={<UsersListPage />} />
             <Route path="/products" element={<ProductsListPage />} />
             <Route path="/suppliers" element={<SuppliersListPage/>} />
+            <Route path="/goats" element={<GoatsListPage />} />
             <Route path="/profile" element={<div>Perfil del Usuario</div>} />
-            <Route path="/suppliers" element={<div>Gestión de Proveedores</div>} />
             <Route path="/employees" element={<div>Gestión de Empleados</div>} />
             <Route path="/inventory" element={<div>Gestión de Inventario</div>} />
         

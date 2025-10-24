@@ -108,7 +108,7 @@ export function Sidebar() {
           />
 
           <NavItem
-            icon={<Users className="h-5 w-5" />}
+            icon={<Milk className="h-5 w-5" />}
             label="Registro Caprino"
             href="/goats"
             isActive={pathname === "/goats"}
@@ -120,14 +120,6 @@ export function Sidebar() {
             label="Proveedores"
             href="/suppliers"
             isActive={pathname === "/suppliers"}
-            collapsed={collapsed}
-          />
-
-          <NavItem
-            icon={<UserCog className="h-5 w-5" />}
-            label="Empleados"
-            href="/employees"
-            isActive={pathname === "/employees"}
             collapsed={collapsed}
           />
 
@@ -219,14 +211,6 @@ export function Sidebar() {
               </CollapsibleContent>
             </Collapsible>
           )}
-
-          <NavItem
-            icon={<Milk className="h-5 w-5" />}
-            label="Ventas"
-            href="/ventas"
-            isActive={pathname === "/ventas"}
-            collapsed={collapsed}
-          />
         </nav>
 
         <div className="mt-auto pt-4 border-t border-[#2a4a04] flex-shrink-0">
