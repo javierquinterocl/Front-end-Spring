@@ -1,7 +1,5 @@
-import from "react"
-
 import { useState, useEffect, useRef, useCallback, useMemo } from "react"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+// Removed tabs import to avoid @radix-ui dependency
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -11,10 +9,9 @@ import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { User, Mail, Phone, MapPin, Calendar, FileText, ShoppingBag, BarChart, Bell, Loader2 } from "lucide-react"
-import { Switch } from "@/components/ui/switch"
-import { useToast } from "../../hooks/use-toast"
-import { updateEmail, updateUserProfile, uploadProfileImage, getUserProfile } from "@/services/api"
-import axios from "axios"
+// Removed Switch import to avoid @radix-ui dependency
+import { useToast } from "@/components/ui/use-toast"
+import { useAuth } from "@/context/AuthContext"
 
 // Interface extendida para el estado userInfo
 
@@ -60,31 +57,39 @@ const userStats = {
 }
 
 export function UserProfile() {
+  const { user, updateUser } = useAuth()
   const [isEditing, setIsEditing] = useState(false)
   const [formData, setFormData] = useState({
-    firstName: userData.firstName,
-    lastName: userData.lastName,
-    phone: userData.phone,
+    firstName: user?.firstName || "",
+    lastName: user?.lastName || "",
+    phone: user?.phone || "",
   })
   
   // Estados para el cambio de correo electrónico
   const [isChangingEmail, setIsChangingEmail] = useState(false)
   const [emailData, setEmailData] = useState({
-    currentEmail: userData.email,
+    currentEmail: user?.email || "",
     newEmail: "",
     password: ""
   })
 
   // Estados para gestionar la imagen de perfil
   const [isUploadingImage, setIsUploadingImage] = useState(false)
-  const [previewImage, setPreviewImage] = useState<string | null>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [previewImage, setPreviewImage] = useState(null)
+  const fileInputRef = useRef(null)
   
   const [isLoading, setIsLoading] = useState(false)
   const [isLoadingProfile, setIsLoadingProfile] = useState(false)
-  const [userInfo, setUserInfo] = useState<UserInfoState>({
+  const [activeTab, setActiveTab] = useState('settings')
+  const [notifications, setNotifications] = useState({
+    email: true,
+    system: true,
+    weekly: false
+  })
+  const [userInfo, setUserInfo] = useState({
     ...userData,
-    avatar: userData.avatar || ""
+    ...user,
+    avatar: user?.avatar || ""
   })
 
   const { toast } = useToast()
@@ -105,7 +110,7 @@ export function UserProfile() {
   }, [userInfo.firstName, userInfo.lastName, userInfo.email, userInfo.phone, userInfo.code, userInfo.avatar, userInfo.createdAt]);
   
   // Crear manejadores de eventos memorizados para evitar recreaciones en cada renderizado
-  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = useCallback((e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
@@ -113,7 +118,7 @@ export function UserProfile() {
     }));
   }, []);
 
-  const handleEmailChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleEmailChange = useCallback((e) => {
     const { name, value } = e.target;
     setEmailData((prev) => ({
       ...prev,
@@ -127,167 +132,30 @@ export function UserProfile() {
     }
   }, []);
 
-  // Cargar datos del usuario desde localStorage y luego obtener perfil completo
+  // Actualizar datos cuando el usuario cambie
   useEffect(() => {
-    // Si ya cargamos el perfil, no hacerlo de nuevo
-    if (profileLoadedRef.current) return;
-    
-    // Bandera para evitar cargas duplicadas
-    let isMounted = true;
-    
-    const loadUserProfile = async () => {
-      // Evitar múltiples cargas simultáneas
-      if (isLoadingProfile) return;
-      setIsLoadingProfile(true);
+    if (user) {
+      setFormData({
+        firstName: user.firstName || "",
+        lastName: user.lastName || "",
+        phone: user.phone || "",
+      });
       
-      try {
-        const storedUser = localStorage.getItem('user');
-        if (!storedUser) {
-          if (isMounted) {
-            toast({
-              title: "Error",
-              description: "No se encontró información del usuario. Por favor inicia sesión nuevamente.",
-              variant: "destructive",
-            });
-          }
-          return;
-        }
-        
-        const userData = JSON.parse(storedUser);
-        if (!userData || !userData.id) {
-          if (isMounted) {
-            toast({
-              title: "Error",
-              description: "Datos de usuario incompletos. Por favor inicia sesión nuevamente.",
-              variant: "destructive",
-            });
-          }
-          return;
-        }
-        
-        // Actualizar datos básicos desde localStorage primero
-        if (userData.email && isMounted) {
-          setEmailData(prev => ({ ...prev, currentEmail: userData.email }));
-          setUserInfo(prev => ({ ...prev, email: userData.email }));
-        }
-        
-        if (userData.name && isMounted) {
-          // Dividir el nombre completo en nombre y apellido
-          const nameParts = userData.name.split(' ');
-          if (nameParts.length >= 2) {
-            const firstName = nameParts[0];
-            const lastName = nameParts.slice(1).join(' ');
-            
-            if (isMounted) {
-              setFormData(prev => ({
-                ...prev,
-                firstName,
-                lastName
-              }));
-              
-              setUserInfo(prev => ({
-                ...prev,
-                firstName,
-                lastName
-              }));
-            }
-          }
-        }
-        
-        if (userData.avatar && isMounted) {
-          setUserInfo(prev => ({ ...prev, avatar: userData.avatar }));
-        }
-        
-        if (userData.phone && isMounted) {
-          setFormData(prev => ({ ...prev, phone: userData.phone }));
-          setUserInfo(prev => ({ ...prev, phone: userData.phone }));
-        }
-        
-        // Obtener perfil completo desde la API
-        try {
-          if (isMounted) {
-            setIsLoading(true);
-          }
-          
-          const userId = userData.id;
-          console.log("Obteniendo perfil completo del usuario:", userId);
-          
-          const profileData = await getUserProfile(userId);
-          console.log("Perfil completo obtenido:", profileData);
-          
-          // Actualizar todos los datos con la información completa del perfil
-          if (isMounted) {
-            setFormData({
-              firstName: profileData.firstName,
-              lastName: profileData.lastName,
-              phone: profileData.phone || "",
-            });
-            
-            setUserInfo(prev => ({
-              ...prev,
-              firstName: profileData.firstName,
-              lastName: profileData.lastName,
-              phone: profileData.phone || "",
-              email: profileData.email,
-              avatar: profileData.avatar || prev.avatar,
-              code: profileData.code,
-              surname: profileData.surname,
-              id: profileData.id.toString(),
-              createdAt: profileData.createdAt
-            }));
-            
-            setEmailData(prev => ({ 
-              ...prev, 
-              currentEmail: profileData.email 
-            }));
-            
-            toast({
-              title: "Perfil cargado",
-              description: "Se ha cargado tu información de perfil correctamente.",
-            });
-            
-            // Marcar que el perfil ya se cargó
-            profileLoadedRef.current = true;
-          }
-        } catch (error) {
-          console.error("Error al obtener perfil completo:", error);
-          if (isMounted) {
-            toast({
-              title: "Advertencia",
-              description: "No se pudo cargar el perfil completo. Se mostrarán datos básicos.",
-              variant: "destructive",
-            });
-          }
-        } finally {
-          if (isMounted) {
-            setIsLoading(false);
-          }
-        }
-      } catch (error) {
-        console.error('Error al cargar datos de usuario:', error);
-        if (isMounted) {
-          toast({
-            title: "Error",
-            description: "Ocurrió un error al cargar los datos del usuario.",
-            variant: "destructive",
-          });
-        }
-      } finally {
-        if (isMounted) {
-          setIsLoadingProfile(false);
-        }
-      }
-    };
-    
-    loadUserProfile();
-    
-    // Limpieza para evitar actualizaciones en componentes desmontados
-    return () => {
-      isMounted = false;
-    };
-  }, []); // Eliminar 'toast' de las dependencias
+      setEmailData({
+        currentEmail: user.email || "",
+        newEmail: "",
+        password: ""
+      });
+      
+      setUserInfo({
+        ...userData,
+        ...user,
+        avatar: user.avatar || ""
+      });
+    }
+  }, [user]);
 
-  const handleFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = useCallback(async (e) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
@@ -303,181 +171,22 @@ export function UserProfile() {
       return;
     }
     
-    // Validar tamaño (max 1MB - reducido de 2MB)
-    if (file.size > 1 * 1024 * 1024) {
-      toast({
-        title: "Error",
-        description: "La imagen no debe superar 1MB para evitar errores de servidor",
-        variant: "destructive",
-      });
-      return;
-    }
-
     // Mostrar vista previa
     const reader = new FileReader();
     reader.onload = (event) => {
       if (event.target?.result) {
-        setPreviewImage(event.target.result as string);
+        setPreviewImage(event.target.result);
       }
     };
     reader.readAsDataURL(file);
 
-    setIsUploadingImage(true);
-    
-    try {
-      console.log(`Procesando imagen: ${file.name}, tipo: ${file.type}, tamaño: ${(file.size / 1024).toFixed(2)}KB`);
-      
-      // Comprimir imagen antes de convertirla a Base64
-      const compressedImage = await compressImage(file);
-      console.log(`Imagen comprimida tamaño: ${(compressedImage.size / 1024).toFixed(2)}KB`);
-      
-      // Convertir a Base64
-      const base64Image = await uploadProfileImage(compressedImage);
-      console.log(`Imagen convertida a Base64, longitud: ${base64Image.length} caracteres`);
-      
-      // Obtener ID del usuario desde localStorage
-      const storedUser = localStorage.getItem('user');
-      if (!storedUser) {
-        throw new Error('No se encontró información del usuario');
-      }
-      
-      const userData = JSON.parse(storedUser);
-      const userId = userData.id;
-      console.log(`Actualizando perfil para usuario ID: ${userId}`);
-      
-      // Verificar si el userId es un número válido
-      if (isNaN(Number(userId))) {
-        console.error('ID de usuario inválido:', userId);
-        throw new Error('ID de usuario inválido');
-      }
-      
-      try {
-        // Actualizar el perfil con la nueva imagen
-        await updateUserProfile(userId, {
-          firstName: userInfo.firstName,
-          lastName: userInfo.lastName,
-          phone: userInfo.phone,
-          avatar: base64Image
-        });
-        
-        // Actualizar estado local
-        setUserInfo(prev => ({
-          ...prev,
-          avatar: base64Image
-        }));
-        
-        toast({
-          title: "Foto actualizada",
-          description: "Tu foto de perfil ha sido actualizada correctamente y ya es visible en tu cuenta.",
-        });
-      } catch (updateError) {
-        console.error('Error específico al llamar updateUserProfile:', updateError);
-        
-        if (axios.isAxiosError(updateError) && updateError.response) {
-          console.error('Detalles del error del servidor:', {
-            status: updateError.response.status,
-            statusText: updateError.response.statusText,
-            data: updateError.response.data
-          });
-          
-          if (updateError.response.status === 500) {
-            toast({
-              title: "Error del servidor",
-              description: "El servidor no pudo procesar la imagen. Intenta con una imagen más pequeña o de otro formato.",
-              variant: "destructive",
-            });
-          } else {
-            toast({
-              title: "Error",
-              description: updateError.response.data?.message || "Error al actualizar la imagen de perfil",
-              variant: "destructive",
-            });
-          }
-          return; // Evitar que se lance de nuevo
-        }
-        
-        throw updateError; // Re-lanzar para el catch externo si no es un AxiosError
-      }
-    } catch (error) {
-      console.error('Error al subir imagen:', error);
-      setPreviewImage(null); // Eliminar la vista previa si hay error
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Error al subir la imagen",
-        variant: "destructive",
-      });
-    } finally {
-      setIsUploadingImage(false);
-    }
-  }, [toast, userInfo.firstName, userInfo.lastName, userInfo.phone]);
-
-  // Función para comprimir imagen (reducir calidad y tamaño)
-  const compressImage = useCallback((file: File): Promise<File> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      
-      reader.onload = (event) => {
-        const img = new Image();
-        img.src = event.target?.result as string;
-        
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          
-          // Calcular nuevas dimensiones (máximo 500px - reducido de 800px)
-          let width = img.width;
-          let height = img.height;
-          const MAX_SIZE = 500;
-          
-          if (width > height && width > MAX_SIZE) {
-            height = Math.round((height * MAX_SIZE) / width);
-            width = MAX_SIZE;
-          } else if (height > MAX_SIZE) {
-            width = Math.round((width * MAX_SIZE) / height);
-            height = MAX_SIZE;
-          }
-          
-          canvas.width = width;
-          canvas.height = height;
-          
-          const ctx = canvas.getContext('2d');
-          ctx?.drawImage(img, 0, 0, width, height);
-          
-          // Convertir a Blob con calidad reducida (0.6 = 60% de calidad - reducido de 0.7)
-          canvas.toBlob(
-            (blob) => {
-              if (!blob) {
-                reject(new Error('Error al comprimir la imagen'));
-                return;
-              }
-              
-              // Crear un nuevo archivo con el blob comprimido
-              const compressedFile = new File([blob], file.name, {
-                type: 'image/jpeg',
-                lastModified: Date.now(),
-              });
-              
-              console.log(`Imagen comprimida: Original ${(file.size / 1024).toFixed(2)}KB -> Comprimida ${(compressedFile.size / 1024).toFixed(2)}KB`);
-              
-              resolve(compressedFile);
-            },
-            'image/jpeg',
-            0.6 // Calidad de compresión (0-1)
-          );
-        };
-        
-        img.onerror = () => {
-          reject(new Error('Error al cargar la imagen para compresión'));
-        };
-      };
-      
-      reader.onerror = () => {
-        reject(new Error('Error al leer el archivo para compresión'));
-      };
+    toast({
+      title: "Función en desarrollo",
+      description: "La actualización de foto de perfil estará disponible próximamente.",
     });
-  }, []);
+  }, [toast]);
 
-  // Memoizar handleSaveProfile para evitar recreaciones innecesarias
+  // Función para guardar perfil
   const handleSaveProfile = useCallback(async () => {
     setIsLoading(true);
     
@@ -493,23 +202,12 @@ export function UserProfile() {
         return;
       }
       
-      // Obtener ID del usuario desde localStorage
-      const storedUser = localStorage.getItem('user');
-      if (!storedUser) {
+      if (!user?.id) {
         throw new Error('No se encontró información del usuario');
       }
       
-      const userData = JSON.parse(storedUser);
-      const userId = userData.id;
-      
-      console.log("Actualizando perfil con datos:", {
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-        phone: formData.phone
-      });
-      
       // Llamar a la API para actualizar el perfil
-      await updateUserProfile(userId, {
+      await updateUser(user.id, {
         firstName: formData.firstName,
         lastName: formData.lastName,
         phone: formData.phone
@@ -539,147 +237,33 @@ export function UserProfile() {
     } finally {
       setIsLoading(false);
     }
-  }, [formData.firstName, formData.lastName, formData.phone, toast]);
+  }, [formData.firstName, formData.lastName, formData.phone, toast, user?.id, updateUser]);
 
-  // En el evento de cambiar email, usar userDisplayData.email
+  // Función para actualizar email
   const handleUpdateEmail = useCallback(async () => {
-    if (!emailData.newEmail) {
-      toast({
-        title: "Error",
-        description: "Por favor ingresa un nuevo correo electrónico.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!emailData.password) {
-      toast({
-        title: "Error",
-        description: "Por favor ingresa tu contraseña para confirmar el cambio.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Validar formato de correo electrónico
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(emailData.newEmail)) {
-      toast({
-        title: "Error",
-        description: "Por favor ingresa un correo electrónico válido.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsLoading(true);
-
-    try {
-      // Obtener ID del usuario desde localStorage
-      const storedUser = localStorage.getItem('user');
-      if (!storedUser) {
-        throw new Error('No se encontró información del usuario');
-      }
-      
-      const userData = JSON.parse(storedUser);
-      const userId = userData.id;
-
-      // Llamar a la API para actualizar el correo
-      await updateEmail(
-        userId,
-        userDisplayData.email,  // Usar userDisplayData.email en lugar de emailData.currentEmail
-        emailData.newEmail,
-        emailData.password
-      );
-
-      // Actualizar el estado local
-      setUserInfo(prev => ({ ...prev, email: emailData.newEmail }));
-      setEmailData(prev => ({ 
-        ...prev, 
-        currentEmail: emailData.newEmail,
-        newEmail: "",
-        password: ""
-      }));
-      
-      setIsChangingEmail(false);
-      
-      toast({
-        title: "Correo actualizado",
-        description: "Tu correo electrónico ha sido actualizado correctamente.",
-      });
-    } catch (error) {
-      console.error('Error al actualizar correo:', error);
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Error al actualizar correo electrónico",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  }, [emailData.newEmail, emailData.password, toast, userDisplayData.email]);
+    toast({
+      title: "Función en desarrollo",
+      description: "La actualización de correo electrónico estará disponible próximamente.",
+    });
+  }, []);
   
-  // Función memoizada para caneclar la edición del correo
+  // Función para cancelar la edición del correo
   const handleCancelEmailChange = useCallback(() => {
     setIsChangingEmail(false);
     setEmailData({
-      currentEmail: userDisplayData.email,
+      currentEmail: user?.email || "",
       newEmail: "",
       password: ""
     });
-  }, [userDisplayData.email]);
+  }, [user?.email]);
 
   // Función para eliminar foto de perfil
   const handleRemoveAvatar = useCallback(async () => {
-    if (!userDisplayData.avatar && !previewImage) return;
-
-    const confirmDelete = window.confirm("¿Estás seguro de que quieres eliminar tu foto de perfil?");
-    if (!confirmDelete) return;
-
-    setIsUploadingImage(true);
-    
-    try {
-      // Obtener ID del usuario desde localStorage
-      const storedUser = localStorage.getItem('user');
-      if (!storedUser) {
-        throw new Error('No se encontró información del usuario');
-      }
-      
-      const userData = JSON.parse(storedUser);
-      const userId = userData.id;
-      
-      // Actualizar el perfil eliminando la imagen
-      await updateUserProfile(userId, {
-        firstName: userInfo.firstName,
-        lastName: userInfo.lastName,
-        phone: userInfo.phone,
-        avatar // Cambiar null a undefined para cumplir con el tipo esperado
-      });
-      
-      // Actualizar estado local
-      setUserInfo(prev => ({
-        ...prev,
-        avatar
-      }));
-      
-      // Limpiar vista previa
-      setPreviewImage(null);
-      
-      toast({
-        title: "Foto eliminada",
-        description: "Tu foto de perfil ha sido eliminada correctamente.",
-      });
-    } catch (error) {
-      console.error('Error al eliminar imagen:', error);
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Error al eliminar la imagen",
-        variant: "destructive",
-      });
-    } finally {
-      setIsUploadingImage(false);
-    }
-  }, [toast, userDisplayData.avatar, previewImage, userInfo.firstName, userInfo.lastName, userInfo.phone]);
+    toast({
+      title: "Función en desarrollo",
+      description: "La eliminación de foto de perfil estará disponible próximamente.",
+    });
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -727,7 +311,7 @@ export function UserProfile() {
                   {userDisplayData.name}
                 </CardTitle>
                 <CardDescription>{userDisplayData.email}</CardDescription>
-                <Badge className="mt-2">{userData.role}</Badge>
+                <Badge className="mt-2">{user?.role || "Usuario"}</Badge>
               </div>
             </CardHeader>
             <CardContent>
@@ -742,7 +326,7 @@ export function UserProfile() {
                 </div>
                 <div className="flex items-center">
                   <MapPin className="h-4 w-4 mr-2 text-muted-foreground" />
-                  <span>{userData.address}</span>
+                  <span>Dirección no especificada</span>
                 </div>
                 <div className="flex items-center">
                   <Calendar className="h-4 w-4 mr-2 text-muted-foreground" />
@@ -750,26 +334,12 @@ export function UserProfile() {
                 </div>
                 <div className="flex items-center">
                   <User className="h-4 w-4 mr-2 text-muted-foreground" />
-                  <span>Último acceso: {userData.lastLogin}</span>
+                  <span>ID: {user?.id || "N/A"}</span>
                 </div>
               </div>
             </CardContent>
             <CardFooter className="flex flex-col gap-2">
-              <Button 
-                variant="outline" 
-                className="w-full" 
-                onClick={handleAvatarClick}
-                disabled={isUploadingImage}
-              >
-                {isUploadingImage ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Subiendo...
-                  </>
-                ) : (
-                  "Cambiar Foto"
-                )}
-              </Button>
+            
               
               {(userDisplayData.avatar || previewImage) && (
                 <Button 
@@ -830,18 +400,30 @@ export function UserProfile() {
           </Card>
         </div>
 
-        {/* Contenido principal con pestañas */}
+        {/* Contenido principal */}
         <div className="md:col-span-2">
-          <Tabs defaultValue="activity" className="space-y-4">
-            <TabsList className="grid grid-cols-4">
-              <TabsTrigger value="activity">Actividad</TabsTrigger>
-              <TabsTrigger value="purchases">Compras</TabsTrigger>
-              <TabsTrigger value="security">Seguridad</TabsTrigger>
-              <TabsTrigger value="settings">Configuración</TabsTrigger>
-            </TabsList>
+          <div className="space-y-4">
+            {/* Navegación simple sin pestañas */}
+            <div className="flex space-x-2 border-b">
+              <Button 
+                variant="ghost" 
+                className={`rounded-none ${activeTab === 'settings' ? 'border-b-2 border-primary' : ''}`}
+                onClick={() => setActiveTab('settings')}
+              >
+                Configuración
+              </Button>
+              <Button 
+                variant="ghost" 
+                className={`rounded-none ${activeTab === 'activity' ? 'border-b-2 border-primary' : ''}`}
+                onClick={() => setActiveTab('activity')}
+              >
+                Actividad
+              </Button>
+            </div>
 
             {/* Pestaña de Actividad Reciente */}
-            <TabsContent value="activity" className="space-y-4">
+            {activeTab === 'activity' && (
+              <div className="space-y-4">
               <Card>
                 <CardHeader>
                   <CardTitle>Actividad Reciente</CardTitle>
@@ -900,10 +482,12 @@ export function UserProfile() {
                   </div>
                 </CardContent>
               </Card>
-            </TabsContent>
+              </div>
+            )}
 
             {/* Pestaña de Compras */}
-            <TabsContent value="purchases" className="space-y-4">
+            {activeTab === 'purchases' && (
+              <div className="space-y-4">
               <Card>
                 <CardHeader>
                   <CardTitle>Compras Recientes</CardTitle>
@@ -1000,10 +584,12 @@ export function UserProfile() {
                   </div>
                 </CardFooter>
               </Card>
-            </TabsContent>
+              </div>
+            )}
 
             {/* Pestaña de Seguridad */}
-            <TabsContent value="security" className="space-y-4">
+            {activeTab === 'security' && (
+              <div className="space-y-4">
               <Card>
                 <CardHeader>
                   <CardTitle>Cambiar Correo Electrónico</CardTitle>
@@ -1089,10 +675,12 @@ export function UserProfile() {
                   </CardFooter>
                 )}
               </Card>
-            </TabsContent>
+              </div>
+            )}
 
             {/* Pestaña de Configuración */}
-            <TabsContent value="settings" className="space-y-4">
+            {activeTab === 'settings' && (
+              <div className="space-y-4">
               <Card>
                 <CardHeader>
                   <CardTitle>Información Personal</CardTitle>
@@ -1146,12 +734,10 @@ export function UserProfile() {
                       </div>
                       <div>
                         <Label className="text-muted-foreground">ID de Usuario</Label>
-                        <p>{userDisplayData.code}</p>
-                        <p className="text-xs text-muted-foreground mt-1">Este código no se puede modificar</p>
+                        <p>{user?.id || "N/A"}</p>
+                        <p className="text-xs text-muted-foreground mt-1">Este ID no se puede modificar</p>
                       </div>
-                      <Button variant="outline" className="mt-2" onClick={() => setIsEditing(true)}>
-                        Editar Datos Personales
-                      </Button>
+                     
                     </div>
                   )}
                 </CardContent>
@@ -1199,7 +785,12 @@ export function UserProfile() {
                         <p className="text-sm text-muted-foreground">Recibe notificaciones por correo electrónico</p>
                       </div>
                     </div>
-                    <Switch defaultChecked />
+                    <input 
+                      type="checkbox" 
+                      checked={notifications.email}
+                      onChange={(e) => setNotifications(prev => ({ ...prev, email: e.target.checked }))}
+                      className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                    />
                   </div>
                   <Separator />
                   <div className="flex items-center justify-between">
@@ -1210,7 +801,12 @@ export function UserProfile() {
                         <p className="text-sm text-muted-foreground">Recibe alertas importantes del sistema</p>
                       </div>
                     </div>
-                    <Switch defaultChecked />
+                    <input 
+                      type="checkbox" 
+                      checked={notifications.system}
+                      onChange={(e) => setNotifications(prev => ({ ...prev, system: e.target.checked }))}
+                      className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                    />
                   </div>
                   <Separator />
                   <div className="flex items-center justify-between">
@@ -1221,12 +817,18 @@ export function UserProfile() {
                         <p className="text-sm text-muted-foreground">Recibe resúmenes semanales de actividad</p>
                       </div>
                     </div>
-                    <Switch />
+                    <input 
+                      type="checkbox" 
+                      checked={notifications.weekly}
+                      onChange={(e) => setNotifications(prev => ({ ...prev, weekly: e.target.checked }))}
+                      className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                    />
                   </div>
                 </CardContent>
               </Card>
-            </TabsContent>
-          </Tabs>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
