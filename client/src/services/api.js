@@ -30,9 +30,15 @@ api.interceptors.request.use(
     // Solo agregar token si NO es una ruta pública
     if (!isPublicRoute) {
       const token = localStorage.getItem('authToken');
+      console.log(`Request to ${config.url}: Token present:`, !!token);
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
+        console.log(`Added Authorization header for ${config.url}`);
+      } else {
+        console.warn(`No token found for ${config.url}`);
       }
+    } else {
+      console.log(`Public route ${config.url}, no token needed`);
     }
     
     return config;
@@ -216,7 +222,8 @@ export const productService = {
         description: productData.description || "",
         unitPrice: productData.unitPrice,
         stock: productData.stock,
-        productType: productData.productType
+        productType: productData.productType,
+        supplierId: productData.supplierId
       };
       
       // Endpoint para crear producto
@@ -257,7 +264,8 @@ export const productService = {
       description: productData.description || "",
       unitPrice: productData.unitPrice,
       stock: productData.stock,
-      productType: productData.productType
+      productType: productData.productType,
+      supplierId: productData.supplierId
     };
     
     const response = await api.put(`/products/${id}`, updateData);
@@ -423,6 +431,75 @@ export const goatService = {
   // Eliminar cabra
   deleteGoat: async (id) => {
     const response = await api.delete(`/goats/${id}`);
+    return response.data;
+  }
+};
+
+// ############### Servicios de la API para Salidas de Productos ##############################
+export const productOutputService = {
+  // Crear salida de producto
+  createProductOutput: async (outputData) => {
+    try {
+      const validatedData = {
+        userId: outputData.userId,
+        productId: outputData.productId,
+        quantity: outputData.quantity,
+        notes: outputData.notes || ""
+      };
+
+      // Endpoint para crear salida de producto
+      const response = await api.post('/product-outputs', validatedData);
+      return response.data;
+    } catch (error) {
+      if (error.response?.status === 400) {
+        throw new Error(error.response.data.message || 'Datos inválidos');
+      } else if (error.response?.status === 404) {
+        throw new Error('Producto o usuario no encontrado');
+      }
+      throw error;
+    }
+  },
+
+  // Obtener todas las salidas de productos
+  getAllProductOutputs: async () => {
+    const response = await api.get('/product-outputs');
+    return response.data;
+  },
+
+  // Obtener salida de producto por ID
+  getProductOutputById: async (id) => {
+    const response = await api.get(`/product-outputs/${id}`);
+    return response.data;
+  },
+
+  // Obtener salidas por producto
+  getOutputsByProduct: async (productId) => {
+    const response = await api.get(`/product-outputs/product/${productId}`);
+    return response.data;
+  },
+
+  // Obtener salidas por usuario
+  getOutputsByUser: async (userId) => {
+    const response = await api.get(`/product-outputs/user/${userId}`);
+    return response.data;
+  },
+
+  // Actualizar salida de producto
+  updateProductOutput: async (id, outputData) => {
+    const updateData = {
+      userId: outputData.userId,
+      productId: outputData.productId,
+      quantity: outputData.quantity,
+      notes: outputData.notes || ""
+    };
+
+    const response = await api.put(`/product-outputs/${id}`, updateData);
+    return response.data;
+  },
+
+  // Eliminar salida de producto
+  deleteProductOutput: async (id) => {
+    const response = await api.delete(`/product-outputs/${id}`);
     return response.data;
   }
 };
