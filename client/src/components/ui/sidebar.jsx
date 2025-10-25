@@ -158,6 +158,13 @@ export function Sidebar() {
                   isActive={pathname === "/products"}
                   collapsed={collapsed}
                 />
+                <NavItem
+                  icon={<Package className="h-5 w-5" />}
+                  label="Salida de Productos"
+                  href="/product-outputs"
+                  isActive={pathname === "/product-outputs"}
+                  collapsed={collapsed}
+                />
               </CollapsibleContent>
             </Collapsible>
           )}

@@ -6,6 +6,7 @@ import ResetPasswordPage from './pages/ResetPassword'
 import { ThemeProvider } from './components/ui/theme-provider'
 import UsersListPage from './pages/UsersList'
 import ProductsListPage from './pages/ProductsList'
+import ProductOutputsListPage from './pages/ProductOutputsList'
 import SuppliersListPage from './pages/SupplierList'
 import GoatsListPage from './pages/GoatsList'
 import Dashboard from './pages/Dashboard'
@@ -31,6 +32,7 @@ function App() {
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/users" element={<UsersListPage />} />
             <Route path="/products" element={<ProductsListPage />} />
+            <Route path="/product-outputs" element={<ProductOutputsListPage />} />
             <Route path="/suppliers" element={<SuppliersListPage/>} />
             <Route path="/goats" element={<GoatsListPage />} />
             <Route path="/profile" element={<MyAccountPage />} />

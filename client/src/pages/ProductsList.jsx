@@ -5,11 +5,12 @@ import { Label } from "@/components/ui/label"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Search, Filter, Download, Eye, Edit2, Trash2, ArrowUpDown, X } from "lucide-react"
-import { productService } from "@/services/api"
+import { productService, supplierService } from "@/services/api"
 import { useToast } from "@/components/ui/use-toast"
 
 export default function ProductsListPage() {
   const [products, setProducts] = useState([])
+  const [suppliers, setSuppliers] = useState([])
   const [isLoading, setIsLoading] = useState(false)
   const [search, setSearch] = useState("")
   const [sortConfig, setSortConfig] = useState({ key: "id", direction: "asc" })
@@ -30,7 +31,8 @@ export default function ProductsListPage() {
     description: "",
     unitPrice: "",
     stock: "",
-    productType: ""
+    productType: "",
+    supplierId: ""
   })
   const [formErrors, setFormErrors] = useState({})
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -48,7 +50,9 @@ export default function ProductsListPage() {
       description: raw.description || raw.descripcion || '',
       unitPrice: raw.unitPrice || raw.unit_price || raw.precio || 0,
       stock: raw.stock || raw.cantidad || raw.inventario || 0,
-      productType: raw.productType || raw.product_type || raw.tipo || ''
+      productType: raw.productType || raw.product_type || raw.tipo || '',
+      supplierId: raw.supplierId || raw.supplier_id || '',
+      supplierName: raw.supplierName || raw.supplier_name || ''
     }
   }
 
@@ -56,7 +60,17 @@ export default function ProductsListPage() {
     try {
       setIsLoading(true)
       const productsData = await productService.getAllProducts()
-      setProducts(Array.isArray(productsData) ? productsData.map(normalizeProduct) : [])
+      
+      // Enriquecer productos con nombre del proveedor
+      const enrichedProducts = productsData.map(product => {
+        const supplier = suppliers.find(s => s.id === product.supplierId)
+        return {
+          ...normalizeProduct(product),
+          supplierName: supplier ? supplier.name : 'Sin proveedor'
+        }
+      })
+      
+      setProducts(Array.isArray(enrichedProducts) ? enrichedProducts : [])
     } catch (error) {
       console.error("Error cargando productos:", error)
       toast({
@@ -67,11 +81,37 @@ export default function ProductsListPage() {
     } finally {
       setIsLoading(false)
     }
+  }, [toast, suppliers])
+
+  const loadSuppliers = useCallback(async () => {
+    try {
+      const suppliersData = await supplierService.getAllSuppliers()
+      setSuppliers(suppliersData)
+    } catch (error) {
+      console.error("Error cargando proveedores:", error)
+      toast({
+        title: "Error",
+        description: "No se pudieron cargar los proveedores",
+        variant: "destructive"
+      })
+    }
   }, [toast])
 
   useEffect(() => {
-    loadProducts()
-  }, [loadProducts])
+    // Cargar proveedores primero
+    const initializeData = async () => {
+      await loadSuppliers()
+      await loadProducts()
+    }
+    initializeData()
+  }, []) // Solo ejecutar una vez al montar
+  
+  // Recargar productos cuando los proveedores cambien
+  useEffect(() => {
+    if (suppliers.length > 0) {
+      loadProducts()
+    }
+  }, [suppliers])
 
   // Funciones para abrir modales
   const handleView = (product) => {
@@ -85,7 +125,8 @@ export default function ProductsListPage() {
       description: product.description || "",
       unitPrice: product.unitPrice?.toString() || "",
       stock: product.stock?.toString() || "",
-      productType: product.productType || ""
+      productType: product.productType || "",
+      supplierId: product.supplierId || ""
     })
     setFormErrors({})
     setEditDialog({ open: true, product })
@@ -102,7 +143,8 @@ export default function ProductsListPage() {
       description: "",
       unitPrice: "",
       stock: "",
-      productType: ""
+      productType: "",
+      supplierId: ""
     })
     setFormErrors({})
     setCreateDialog(true)
@@ -123,22 +165,43 @@ export default function ProductsListPage() {
       errors.stock = "El stock debe ser un número mayor o igual a 0"
     }
     if (!formData.productType.trim()) errors.productType = "El tipo de producto es requerido"
+    if (!formData.supplierId || !formData.supplierId.trim()) errors.supplierId = "El proveedor es requerido"
     
     setFormErrors(errors)
-    return Object.keys(errors).length === 0
+    const formIsValid = Object.keys(errors).length === 0;
+    console.log("validateForm: Current formData.supplierId:", formData.supplierId, "Errors:", errors, "Form is valid:", formIsValid);
+    return formIsValid;
   }
 
   // Función para crear producto
   const handleCreateSubmit = async () => {
-    if (!validateForm(true)) return
+    console.log("handleCreateSubmit: formData.supplierId antes de validar:", formData.supplierId);
+    const isValid = validateForm(true);
+    console.log("handleCreateSubmit: validateForm returned:", isValid);
+
+    if (!isValid) {
+      console.log("handleCreateSubmit: Frontend validation failed, preventing submission.");
+      return;
+    }
     
     setIsSubmitting(true)
     try {
+      console.log("DEBUG: formData completo:", formData);
+      console.log("DEBUG: formData.supplierId tipo:", typeof formData.supplierId);
+      console.log("DEBUG: formData.supplierId valor:", formData.supplierId);
+      
       const productData = {
-        ...formData,
+        productId: formData.productId,
+        name: formData.name,
+        description: formData.description,
         unitPrice: parseFloat(formData.unitPrice),
-        stock: parseInt(formData.stock)
+        stock: parseInt(formData.stock),
+        productType: formData.productType,
+        supplierId: parseInt(formData.supplierId)
       }
+      
+      console.log("DEBUG: productData.supplierId final:", productData.supplierId);
+      console.log("handleCreateSubmit: Submitting productData:", productData);
       await productService.createProduct(productData)
       toast({
         title: "Producto creado",
@@ -160,15 +223,27 @@ export default function ProductsListPage() {
 
   // Función para actualizar producto
   const handleEditSubmit = async () => {
-    if (!validateForm(false)) return
+    console.log("handleEditSubmit: formData.supplierId antes de validar:", formData.supplierId);
+    const isValid = validateForm(false);
+    console.log("handleEditSubmit: validateForm returned:", isValid);
+
+    if (!isValid) {
+      console.log("handleEditSubmit: Frontend validation failed, preventing submission.");
+      return;
+    }
     
     setIsSubmitting(true)
     try {
       const productData = {
-        ...formData,
+        productId: formData.productId,
+        name: formData.name,
+        description: formData.description,
         unitPrice: parseFloat(formData.unitPrice),
-        stock: parseInt(formData.stock)
+        stock: parseInt(formData.stock),
+        productType: formData.productType,
+        supplierId: formData.supplierId ? parseInt(formData.supplierId) : null
       }
+      console.log("handleEditSubmit: Submitting productData:", productData);
       await productService.updateProduct(editDialog.product.id, productData)
       toast({
         title: "Producto actualizado",
@@ -232,7 +307,7 @@ export default function ProductsListPage() {
       } else {
         const termLower = term.toLowerCase()
         data = data.filter(p => {
-          return [p.name, p.productId, p.productType, p.description]
+          return [p.name, p.productId, p.productType, p.description, p.supplierName]
             .filter(Boolean)
             .some(v => v.toLowerCase().includes(termLower))
         })
@@ -336,6 +411,9 @@ export default function ProductsListPage() {
                   <SortButton colKey="productType">Tipo</SortButton>
                 </TableHead>
                 <TableHead className="font-medium text-gray-600">
+                  <SortButton colKey="supplierName">Proveedor</SortButton>
+                </TableHead>
+                <TableHead className="font-medium text-gray-600">
                   <SortButton colKey="unitPrice">Precio</SortButton>
                 </TableHead>
                 <TableHead className="font-medium text-gray-600">
@@ -365,6 +443,7 @@ export default function ProductsListPage() {
                   <TableCell className="text-gray-700">{product.productId || '-'}</TableCell>
                   <TableCell className="text-gray-700">{product.name || '-'}</TableCell>
                   <TableCell className="text-gray-600">{product.productType || '-'}</TableCell>
+                  <TableCell className="text-gray-600">{product.supplierName || '-'}</TableCell>
                   <TableCell className="text-gray-600">{formatPrice(product.unitPrice)}</TableCell>
                   <TableCell className="text-gray-600">{product.stock || 0}</TableCell>
                   <TableCell>
@@ -461,6 +540,10 @@ export default function ProductsListPage() {
                   <p className="text-sm mt-1">{viewDialog.product.productType}</p>
                 </div>
                 <div>
+                  <Label className="text-sm font-medium text-gray-500">Proveedor</Label>
+                  <p className="text-sm mt-1">{viewDialog.product.supplierName || 'Sin proveedor'}</p>
+                </div>
+                <div>
                   <Label className="text-sm font-medium text-gray-500">Precio Unitario</Label>
                   <p className="text-sm mt-1">{formatPrice(viewDialog.product.unitPrice)}</p>
                 </div>
@@ -513,6 +596,23 @@ export default function ProductsListPage() {
                 <p className="text-xs text-gray-500 mt-1">
                   Tipos disponibles: {productTypes.join(', ')}
                 </p>
+              </div>
+              <div>
+                <Label htmlFor="create-supplierId">Proveedor *</Label>
+                <select
+                  id="create-supplierId"
+                  value={formData.supplierId}
+                  onChange={(e) => handleFormChange('supplierId', e.target.value)}
+                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#6b7c45] focus:border-transparent ${formErrors.supplierId ? 'border-red-500' : 'border-gray-300'}`}
+                >
+                  <option value="">Seleccionar proveedor</option>
+                  {suppliers.map((supplier) => (
+                    <option key={supplier.id} value={supplier.id}>
+                      {supplier.name}
+                    </option>
+                  ))}
+                </select>
+                {formErrors.supplierId && <p className="text-xs text-red-500 mt-1">{formErrors.supplierId}</p>}
               </div>
             </div>
             <div>
@@ -610,6 +710,23 @@ export default function ProductsListPage() {
                 <p className="text-xs text-gray-500 mt-1">
                   Tipos disponibles: {productTypes.join(', ')}
                 </p>
+              </div>
+              <div>
+                <Label htmlFor="edit-supplierId">Proveedor *</Label>
+                <select
+                  id="edit-supplierId"
+                  value={formData.supplierId}
+                  onChange={(e) => handleFormChange('supplierId', e.target.value)}
+                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#6b7c45] focus:border-transparent ${formErrors.supplierId ? 'border-red-500' : 'border-gray-300'}`}
+                >
+                  <option value="">Seleccionar proveedor</option>
+                  {suppliers.map((supplier) => (
+                    <option key={supplier.id} value={supplier.id}>
+                      {supplier.name}
+                    </option>
+                  ))}
+                </select>
+                {formErrors.supplierId && <p className="text-xs text-red-500 mt-1">{formErrors.supplierId}</p>}
               </div>
             </div>
             <div>
