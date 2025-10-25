@@ -9,6 +9,7 @@ import ProductsListPage from './pages/ProductsList'
 import SuppliersListPage from './pages/SupplierList'
 import GoatsListPage from './pages/GoatsList'
 import Dashboard from './pages/Dashboard'
+import MyAccountPage from './pages/MyAccount'
 import { Toaster } from './components/ui/toaster'
 import { ProtectedRoute } from './components/ui/ProtectedRoute'
 import { AuthProvider } from './context/AuthContext'
@@ -32,7 +33,7 @@ function App() {
             <Route path="/products" element={<ProductsListPage />} />
             <Route path="/suppliers" element={<SuppliersListPage/>} />
             <Route path="/goats" element={<GoatsListPage />} />
-            <Route path="/profile" element={<div>Perfil del Usuario</div>} />
+            <Route path="/profile" element={<MyAccountPage />} />
             <Route path="/employees" element={<div>Gestión de Empleados</div>} />
             <Route path="/inventory" element={<div>Gestión de Inventario</div>} />
         
