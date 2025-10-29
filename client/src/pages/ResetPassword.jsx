@@ -5,12 +5,12 @@ import { Label } from "@/components/ui/label"
 import { Link, useParams, useNavigate } from "react-router-dom"
 import { Eye, EyeOff } from "lucide-react"
 import axios from "axios"
+import api from "@/services/api"
 import AuthLayout from "@/components/AuthLayout"
 import AuthHeader from "@/components/AuthHeader"
 import AuthCard from "@/components/AuthCard"
 
-// Constante para la URL de la API
-const API_URL = "http://localhost:4000/api"
+
 
 export default function ResetPasswordPage() {
   const [password, setPassword] = useState("")
@@ -67,7 +67,7 @@ export default function ResetPasswordPage() {
       }
 
       // Enviar solicitud de restablecimiento
-      const response = await axios.post(`${API_URL}/reset-password`, {
+        const response = await api.post(`/reset-password`, {
         token,
         password
       }, config)
