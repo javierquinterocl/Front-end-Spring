@@ -128,43 +128,17 @@ export default function RegisterPage() {
     } catch (error) {
       console.error("Error en el proceso de registro:", error)
       
-      if (error?.response) {
+      // Usar el mensaje de error mejorado del servicio
+      if (error.message) {
+        setError(error.message);
+      } else if (error?.response) {
         console.error("Detalles del error del servidor:", {
           status: error.response.status,
           data: error.response.data
         });
-        
-        // Si es un error personalizado de nuestro servicio de API
-        if (error.message && (
-          error.message.includes('correo electrónico') ||
-          error.message.includes('documento') ||
-          error.message.includes('código')
-        )) {
-          setError(error.message);
-        } else {
-          // Otros tipos de errores del servidor
-          switch (error.response.status) {
-            case 400:
-              setError("Datos de registro inválidos. Por favor verifica la información.")
-              break;
-            case 409:
-              setError("El usuario ya existe. Por favor intenta con otros datos (email, cédula o código).")
-              break;
-            case 500:
-              if (error.response.data?.message?.includes('llave duplicad')) {
-                setError("Ya existe un usuario con algunos de los datos proporcionados. Por favor verifica el correo, código o número de documento.");
-              } else {
-                setError("Error interno del servidor. Por favor intenta más tarde.")
-              }
-              break;
-            default:
-              setError(error.response.data.message || "Error en el registro")
-          }
-        }
-      } else if (error instanceof Error) {
-        setError(error.message)
+        setError("Error al registrar usuario. Intenta nuevamente.");
       } else {
-        setError("Ha ocurrido un error inesperado durante el registro")
+        setError("No se pudo conectar con el servidor. Verifica tu conexión.");
       }
     } finally {
       setIsLoading(false)
