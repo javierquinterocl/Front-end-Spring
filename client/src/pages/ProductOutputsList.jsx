@@ -112,14 +112,14 @@ export default function ProductOutputsListPage() {
       await loadUsers()
     }
     initializeData()
-  }, []) // Solo ejecutar una vez al montar
+  }, [loadProducts, loadUsers]) // Solo ejecutar cuando las funciones cambien
   
   // Recargar salidas cuando los productos o usuarios cambien
   useEffect(() => {
     if (products.length > 0 && users.length > 0) {
       loadOutputs()
     }
-  }, [products, users])
+  }, [products, users, loadOutputs])
 
   // Funciones para abrir modales
   const handleView = (output) => {

@@ -4,12 +4,13 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Link } from "react-router-dom"
 import axios from "axios"
+import api from "@/services/api"
 import AuthLayout from "@/components/AuthLayout"
 import AuthHeader from "@/components/AuthHeader"
 import AuthCard from "@/components/AuthCard"
 
 // Constante para la URL de la API
-const API_URL = "http://localhost:4000/api"
+
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("")
@@ -46,7 +47,7 @@ export default function ForgotPasswordPage() {
       }
 
       // Enviar solicitud de recuperación
-      const response = await axios.post(`${API_URL}/forgot-password`, { email }, config)
+    const response = await api.post(`/forgot-password`, { email }, config)
 
       console.log("Respuesta del servidor:", {
         status: response.status,

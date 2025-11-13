@@ -1,8 +1,8 @@
 import axios from 'axios';
 
 // Configuración base de la API
-const API_BASE_URL = 'https://deployspringboot-production.up.railway.app'; // Railway deployment
-//const API_BASE_URL = 'http://localhost:8080'; // Puerto por defecto de Spring Boot
+const API_BASE_URL ='https://primer-parcial-spring-production.up.railway.app';
+
 // Crear instancia de axios con configuracion base
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -19,7 +19,9 @@ api.interceptors.request.use(
     // Rutas públicas que no requieren autenticación (ruta + método HTTP)
     const publicEndpoints = [
       { url: '/users/login', method: 'POST' },   // Login
-      { url: '/users', method: 'POST' }          // Registro
+      { url: '/users', method: 'POST' },         // Registro
+      // 
+      // { url: '/products', method: 'POST' }
     ];
     
     // Verificar si es una ruta pública (comparar URL y método)
@@ -30,15 +32,9 @@ api.interceptors.request.use(
     // Solo agregar token si NO es una ruta pública
     if (!isPublicRoute) {
       const token = localStorage.getItem('authToken');
-      console.log(`Request to ${config.url}: Token present:`, !!token);
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
-        console.log(`Added Authorization header for ${config.url}`);
-      } else {
-        console.warn(`No token found for ${config.url}`);
       }
-    } else {
-      console.log(`Public route ${config.url}, no token needed`);
     }
     
     return config;
@@ -128,18 +124,14 @@ const getErrorMessage = (error) => {
 // Interceptor para responses
 api.interceptors.response.use(
   (response) => {
-    console.log('Respuesta recibida:', response.status, response.config.url);
     return response;
   },
   (error) => {
-    console.error('Error en response:', error.response?.status, error.response?.data);
-    
     // Manejo de errores específicos
     if (error.response?.status === 401) {
       // Token expirado o no valido
       localStorage.removeItem('authToken');
       localStorage.removeItem('user');
-      // Redirigir al login si es necesario
     }
     
     // Agregar mensaje de error claro al objeto error
@@ -285,7 +277,7 @@ export const productService = {
   // Crear producto
   createProduct: async (productData) => {
     try {
-      
+      const supplierIdNum = Number(productData.supplierId);
       const validatedData = {
         productId: productData.productId,
         name: productData.name,
@@ -293,15 +285,14 @@ export const productService = {
         unitPrice: productData.unitPrice,
         stock: productData.stock,
         productType: productData.productType,
-        supplierId: productData.supplierId
+        // Enviar ambos formatos para máxima compatibilidad con el backend
+        supplierId: supplierIdNum,
+        supplier: supplierIdNum ? { id: supplierIdNum } : undefined
       };
-      
-      // Endpoint para crear producto
       const response = await api.post('/products', validatedData);
       return response.data;
     } catch (error) {
       if (error.response?.status === 500 && error.response?.data?.message?.includes('llave duplicad')) {
-       
         if (error.response.data.message.includes('product_id')) {
           throw new Error('El ID del producto ya está registrado');
         } else if (error.response.data.message.includes('name')) {
@@ -328,6 +319,7 @@ export const productService = {
 
   // Actualizar producto
   updateProduct: async (id, productData) => {
+    const supplierIdNum = Number(productData.supplierId);
     const updateData = {
       productId: productData.productId,
       name: productData.name,
@@ -335,7 +327,8 @@ export const productService = {
       unitPrice: productData.unitPrice,
       stock: productData.stock,
       productType: productData.productType,
-      supplierId: productData.supplierId
+      supplierId: supplierIdNum,
+      supplier: supplierIdNum ? { id: supplierIdNum } : undefined
     };
     
     const response = await api.put(`/products/${id}`, updateData);

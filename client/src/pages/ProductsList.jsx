@@ -43,6 +43,17 @@ export default function ProductsListPage() {
   ]
 
   const normalizeProduct = (raw) => {
+    // Extraer supplierId con más cuidado
+    let supplierId = raw.supplierId || raw.supplier_id || raw.supplier?.id || null;
+    
+    // Asegurar que supplierId sea un número o null
+    if (supplierId !== null && supplierId !== undefined) {
+      supplierId = typeof supplierId === 'number' ? supplierId : parseInt(supplierId);
+      if (isNaN(supplierId)) {
+        supplierId = null;
+      }
+    }
+    
     return {
       ...raw,
       productId: raw.productId || raw.product_id || '',
@@ -51,8 +62,8 @@ export default function ProductsListPage() {
       unitPrice: raw.unitPrice || raw.unit_price || raw.precio || 0,
       stock: raw.stock || raw.cantidad || raw.inventario || 0,
       productType: raw.productType || raw.product_type || raw.tipo || '',
-      supplierId: raw.supplierId || raw.supplier_id || '',
-      supplierName: raw.supplierName || raw.supplier_name || ''
+      supplierId: supplierId,
+      supplierName: raw.supplierName || raw.supplier_name || raw.supplier?.name || ''
     }
   }
 
@@ -61,13 +72,29 @@ export default function ProductsListPage() {
       setIsLoading(true)
       const productsData = await productService.getAllProducts()
       
-      // Enriquecer productos con nombre del proveedor
-      const enrichedProducts = productsData.map(product => {
-        const supplier = suppliers.find(s => s.id === product.supplierId)
-        return {
-          ...normalizeProduct(product),
-          supplierName: supplier ? supplier.name : 'Sin proveedor'
+      // Normalizar productos primero
+      const normalizedProducts = productsData.map(product => normalizeProduct(product))
+      
+      // Enriquecer productos con nombre del proveedor si no viene del backend
+      const enrichedProducts = normalizedProducts.map(product => {
+        // Si ya tiene supplierName del backend, usarlo
+        if (product.supplierName && product.supplierName !== '') {
+          return product;
         }
+        
+        // Si no, buscar en la lista de proveedores
+        if (product.supplierId && suppliers.length > 0) {
+          const supplier = suppliers.find(s => s.id === product.supplierId);
+          return {
+            ...product,
+            supplierName: supplier ? supplier.name : 'Sin proveedor'
+          };
+        }
+        
+        return {
+          ...product,
+          supplierName: 'Sin proveedor'
+        };
       })
       
       setProducts(Array.isArray(enrichedProducts) ? enrichedProducts : [])
@@ -98,20 +125,20 @@ export default function ProductsListPage() {
   }, [toast])
 
   useEffect(() => {
-    // Cargar proveedores primero
+    // Cargar proveedores y productos al montar
     const initializeData = async () => {
       await loadSuppliers()
-      await loadProducts()
+    
     }
     initializeData()
-  }, []) // Solo ejecutar una vez al montar
+  }, [loadSuppliers]) 
   
-  // Recargar productos cuando los proveedores cambien
+  
   useEffect(() => {
     if (suppliers.length > 0) {
       loadProducts()
     }
-  }, [suppliers])
+  }, [suppliers, loadProducts])
 
   // Funciones para abrir modales
   const handleView = (product) => {
@@ -119,6 +146,9 @@ export default function ProductsListPage() {
   }
 
   const handleEdit = (product) => {
+   
+    const supplierIdValue = product.supplierId ? product.supplierId.toString() : "";
+    
     setFormData({
       productId: product.productId || "",
       name: product.name || "",
@@ -126,7 +156,7 @@ export default function ProductsListPage() {
       unitPrice: product.unitPrice?.toString() || "",
       stock: product.stock?.toString() || "",
       productType: product.productType || "",
-      supplierId: product.supplierId || ""
+      supplierId: supplierIdValue
     })
     setFormErrors({})
     setEditDialog({ open: true, product })
@@ -165,30 +195,37 @@ export default function ProductsListPage() {
       errors.stock = "El stock debe ser un número mayor o igual a 0"
     }
     if (!formData.productType.trim()) errors.productType = "El tipo de producto es requerido"
-    if (!formData.supplierId || !formData.supplierId.trim()) errors.supplierId = "El proveedor es requerido"
+    
+    // Validación mejorada para supplierId
+    if (!formData.supplierId || (typeof formData.supplierId === 'string' && !formData.supplierId.trim())) {
+      errors.supplierId = "El proveedor es requerido"
+    } else if (isNaN(parseInt(formData.supplierId))) {
+      errors.supplierId = "El proveedor seleccionado no es válido"
+    }
     
     setFormErrors(errors)
-    const formIsValid = Object.keys(errors).length === 0;
-    console.log("validateForm: Current formData.supplierId:", formData.supplierId, "Errors:", errors, "Form is valid:", formIsValid);
-    return formIsValid;
+    return Object.keys(errors).length === 0;
   }
 
   // Función para crear producto
   const handleCreateSubmit = async () => {
-    console.log("handleCreateSubmit: formData.supplierId antes de validar:", formData.supplierId);
-    const isValid = validateForm(true);
-    console.log("handleCreateSubmit: validateForm returned:", isValid);
-
-    if (!isValid) {
-      console.log("handleCreateSubmit: Frontend validation failed, preventing submission.");
+    if (!validateForm(true)) {
       return;
     }
     
     setIsSubmitting(true)
     try {
-      console.log("DEBUG: formData completo:", formData);
-      console.log("DEBUG: formData.supplierId tipo:", typeof formData.supplierId);
-      console.log("DEBUG: formData.supplierId valor:", formData.supplierId);
+      const supplierIdNum = parseInt(formData.supplierId);
+      
+      if (isNaN(supplierIdNum)) {
+        toast({
+          title: "Error",
+          description: "Debes seleccionar un proveedor válido",
+          variant: "destructive"
+        });
+        setIsSubmitting(false);
+        return;
+      }
       
       const productData = {
         productId: formData.productId,
@@ -197,12 +234,11 @@ export default function ProductsListPage() {
         unitPrice: parseFloat(formData.unitPrice),
         stock: parseInt(formData.stock),
         productType: formData.productType,
-        supplierId: parseInt(formData.supplierId)
+        supplierId: supplierIdNum
       }
       
-      console.log("DEBUG: productData.supplierId final:", productData.supplierId);
-      console.log("handleCreateSubmit: Submitting productData:", productData);
       await productService.createProduct(productData)
+      
       toast({
         title: "Producto creado",
         description: "El producto ha sido creado exitosamente",
@@ -223,17 +259,24 @@ export default function ProductsListPage() {
 
   // Función para actualizar producto
   const handleEditSubmit = async () => {
-    console.log("handleEditSubmit: formData.supplierId antes de validar:", formData.supplierId);
-    const isValid = validateForm(false);
-    console.log("handleEditSubmit: validateForm returned:", isValid);
-
-    if (!isValid) {
-      console.log("handleEditSubmit: Frontend validation failed, preventing submission.");
+    if (!validateForm(false)) {
       return;
     }
     
     setIsSubmitting(true)
     try {
+      const supplierIdNum = parseInt(formData.supplierId);
+      
+      if (isNaN(supplierIdNum)) {
+        toast({
+          title: "Error",
+          description: "Debes seleccionar un proveedor válido",
+          variant: "destructive"
+        });
+        setIsSubmitting(false);
+        return;
+      }
+      
       const productData = {
         productId: formData.productId,
         name: formData.name,
@@ -241,10 +284,11 @@ export default function ProductsListPage() {
         unitPrice: parseFloat(formData.unitPrice),
         stock: parseInt(formData.stock),
         productType: formData.productType,
-        supplierId: formData.supplierId ? parseInt(formData.supplierId) : null
+        supplierId: supplierIdNum
       }
-      console.log("handleEditSubmit: Submitting productData:", productData);
+      
       await productService.updateProduct(editDialog.product.id, productData)
+      
       toast({
         title: "Producto actualizado",
         description: "El producto ha sido actualizado exitosamente",
