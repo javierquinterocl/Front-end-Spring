@@ -75,20 +75,14 @@ export default function LoginPage() {
     } catch (error) {
       console.error("Error en el login:", error)
       
-      if (error.response?.status === 401) {
-        setError("Credenciales incorrectas. Verifique su correo y contraseña.")
-      } else if (error.response?.data?.message) {
-        setError(error.response.data.message)
-      } else if (error instanceof Error) {
-        setError(error.message)
-      } else {
-        setError("Ha ocurrido un error inesperado durante el login")
-      }
+      // Usar el mensaje de error mejorado del servicio
+      const errorMessage = error.message || "Error al iniciar sesión. Verifica tus credenciales.";
+      setError(errorMessage);
       
       // Mostrar notificación de error
       toast({
         title: "Error de inicio de sesión",
-        description: error.response?.data?.message || "No se pudo iniciar sesión. Verifique sus credenciales.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {

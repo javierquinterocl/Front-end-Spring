@@ -1,8 +1,8 @@
 import axios from 'axios';
 
 // Configuración base de la API
-const API_BASE_URL = 'http://localhost:8080'; // Puerto por defecto de Spring Boot
-
+const API_BASE_URL = 'https://deployspringboot-production.up.railway.app'; // Railway deployment
+//const API_BASE_URL = 'http://localhost:8080'; // Puerto por defecto de Spring Boot
 // Crear instancia de axios con configuracion base
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -49,6 +49,82 @@ api.interceptors.request.use(
   }
 );
 
+// Función helper para extraer mensajes de error claros
+const getErrorMessage = (error) => {
+  if (!error.response) {
+    return 'No se pudo conectar con el servidor. Verifica tu conexión a internet.';
+  }
+
+  const status = error.response.status;
+  const data = error.response.data;
+  
+  // Mensajes específicos por código de estado
+  switch (status) {
+    case 400:
+      if (data?.message) return data.message;
+      return 'Los datos enviados no son válidos. Verifica la información e intenta nuevamente.';
+    
+    case 401:
+      return 'Sesión expirada. Por favor, inicia sesión nuevamente.';
+    
+    case 403:
+      if (data?.message?.includes('dependen')) {
+        return data.message;
+      }
+      if (data?.message?.includes('permiso') || data?.message?.includes('autorizado')) {
+        return 'No tienes permisos para realizar esta acción. Contacta al administrador.';
+      }
+      return 'Acceso denegado. No tienes los permisos necesarios.';
+    
+    case 404:
+      return 'El recurso solicitado no existe o fue eliminado.';
+    
+    case 409:
+      // Conflictos: datos duplicados, etc
+      if (data?.message) return data.message;
+      return 'Ya existe un registro con los datos proporcionados.';
+    
+    case 500:
+      // Errores del servidor - intentar extraer info útil
+      if (data?.message) {
+        // Detectar errores de llave duplicada
+        if (data.message.includes('llave duplicad') || data.message.includes('Duplicate entry') || data.message.includes('unique constraint')) {
+          if (data.message.toLowerCase().includes('email')) {
+            return 'El correo electrónico ya está registrado. Usa otro correo.';
+          }
+          if (data.message.toLowerCase().includes('id_card') || data.message.toLowerCase().includes('idcard')) {
+            return 'El número de documento ya está registrado en el sistema.';
+          }
+          if (data.message.toLowerCase().includes('code') || data.message.toLowerCase().includes('codigo')) {
+            return 'El código de usuario ya está en uso. Intenta con otro código.';
+          }
+          if (data.message.toLowerCase().includes('supplier_id') || data.message.toLowerCase().includes('supplierid')) {
+            return 'El ID del proveedor ya está registrado. Usa otro ID.';
+          }
+          if (data.message.toLowerCase().includes('product_id') || data.message.toLowerCase().includes('productid')) {
+            return 'El ID del producto ya está registrado. Usa otro ID.';
+          }
+          if (data.message.toLowerCase().includes('goat_id') || data.message.toLowerCase().includes('goatid')) {
+            return 'El ID de la cabra ya está registrado. Usa otro ID.';
+          }
+          return 'Ya existe un registro con algunos de los datos proporcionados (código, documento o correo duplicado).';
+        }
+        
+        // Detectar errores de relaciones/dependencias
+        if (data.message.includes('foreign key') || data.message.includes('constraint') || data.message.includes('dependen')) {
+          return 'No se puede eliminar este registro porque tiene datos relacionados (productos, salidas, etc.). Elimina primero las dependencias.';
+        }
+        
+        return data.message;
+      }
+      return 'Error interno del servidor. Intenta nuevamente más tarde.';
+    
+    default:
+      if (data?.message) return data.message;
+      return `Error inesperado (código ${status}). Contacta al soporte técnico.`;
+  }
+};
+
 // Interceptor para responses
 api.interceptors.response.use(
   (response) => {
@@ -65,6 +141,9 @@ api.interceptors.response.use(
       localStorage.removeItem('user');
       // Redirigir al login si es necesario
     }
+    
+    // Agregar mensaje de error claro al objeto error
+    error.userMessage = getErrorMessage(error);
     
     return Promise.reject(error);
   }
@@ -91,19 +170,8 @@ export const userService = {
       const response = await api.post('/users', validatedData);
       return response.data;
     } catch (error) {
-      if (error.response?.status === 500 && error.response?.data?.message?.includes('llave duplicad')) {
-        // Verificar qué campo está duplicado
-        if (error.response.data.message.includes('email')) {
-          throw new Error('El correo electrónico ya está registrado');
-        } else if (error.response.data.message.includes('id_card')) {
-          throw new Error('El número de documento ya está registrado');
-        } else if (error.response.data.message.includes('code')) {
-          throw new Error('El código de usuario ya está registrado');
-        } else {
-          throw new Error('Ya existe un usuario con algunos de los datos proporcionados');
-        }
-      }
-      throw error;
+      // El interceptor ya agregó userMessage con el error específico
+      throw new Error(error.userMessage || 'Error al registrar usuario');
     }
   },
 
@@ -156,8 +224,12 @@ export const userService = {
 
   // Eliminar usuario
   deleteUser: async (id) => {
-    const response = await api.delete(`/users/${id}`);
-    return response.data;
+    try {
+      const response = await api.delete(`/users/${id}`);
+      return response.data;
+    } catch (error) {
+      throw new Error(error.userMessage || 'Error al eliminar usuario');
+    }
   },
   
   // Login de usuario
@@ -181,13 +253,11 @@ export const userService = {
         user: user
       };
     } catch (error) {
-      // Manejar errores de autenticación
+      // Manejar errores de autenticación con mensajes específicos
       if (error.response?.status === 401 || error.response?.status === 404) {
-        throw new Error('Credenciales inválidas');
-      } else if (error.response?.status === 500) {
-        throw new Error('Error en el servidor. Intente nuevamente');
+        throw new Error('Correo electrónico o contraseña incorrectos. Verifica tus credenciales.');
       }
-      throw new Error(error.response?.data?.message || 'Error al iniciar sesión');
+      throw new Error(error.userMessage || 'Error al iniciar sesión');
     }
   },
 
@@ -274,8 +344,12 @@ export const productService = {
 
   // Eliminar producto
   deleteProduct: async (id) => {
-    const response = await api.delete(`/products/${id}`);
-    return response.data;
+    try {
+      const response = await api.delete(`/products/${id}`);
+      return response.data;
+    } catch (error) {
+      throw new Error(error.userMessage || 'Error al eliminar producto');
+    }
   }
 };
 // ############### Servicios de la API para Proveedores ##############################
@@ -349,8 +423,12 @@ export const supplierService = {
 
   // Eliminar proveedor
   deleteSupplier: async (id) => {
-    const response = await api.delete(`/suppliers/${id}`);
-    return response.data;
+    try {
+      const response = await api.delete(`/suppliers/${id}`);
+      return response.data;
+    } catch (error) {
+      throw new Error(error.userMessage || 'Error al eliminar proveedor');
+    }
   }
 };
 
@@ -430,8 +508,12 @@ export const goatService = {
 
   // Eliminar cabra
   deleteGoat: async (id) => {
-    const response = await api.delete(`/goats/${id}`);
-    return response.data;
+    try {
+      const response = await api.delete(`/goats/${id}`);
+      return response.data;
+    } catch (error) {
+      throw new Error(error.userMessage || 'Error al eliminar cabra');
+    }
   }
 };
 
