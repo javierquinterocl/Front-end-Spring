@@ -4,10 +4,11 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Search, Filter, Download, Eye, Edit2, Trash2, ArrowUpDown, X } from "lucide-react"
+import { Search, Filter, Download, Eye, Edit2, Trash2, ArrowUpDown, X, FileSpreadsheet, FileText } from "lucide-react"
 import { goatService } from "@/services/api"
 import { useToast } from "@/components/ui/use-toast"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 
 export default function GoatsListPage() {
   const [goats, setGoats] = useState([])
@@ -44,6 +45,7 @@ export default function GoatsListPage() {
   })
   const [formErrors, setFormErrors] = useState({})
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isExporting, setIsExporting] = useState(false)
 
   const loadGoats = useCallback(async () => {
     try {
@@ -214,6 +216,48 @@ export default function GoatsListPage() {
     }
   }
 
+  // Función para exportar a Excel
+  const handleExportExcel = async () => {
+    try {
+      setIsExporting(true)
+      await goatService.exportToExcel()
+      toast({
+        title: "Éxito",
+        description: "Reporte Excel descargado correctamente",
+        className: "bg-green-50 border-green-200"
+      })
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error.message || "No se pudo exportar a Excel",
+        variant: "destructive"
+      })
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
+  // Función para exportar a PDF
+  const handleExportPdf = async () => {
+    try {
+      setIsExporting(true)
+      await goatService.exportToPdf()
+      toast({
+        title: "Éxito",
+        description: "Reporte PDF descargado correctamente",
+        className: "bg-green-50 border-green-200"
+      })
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error.message || "No se pudo exportar a PDF",
+        variant: "destructive"
+      })
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
   const filtered = useMemo(() => {
     const term = search.trim()
     let data = [...goats]
@@ -301,9 +345,35 @@ export default function GoatsListPage() {
               <Filter className="h-4 w-4" />
               Filtros
             </Button>
-            <Button variant="outline" className="gap-2 border-gray-300">
-              <Download className="h-4 w-4" />
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button 
+                  className="gap-2 bg-[#6b7c45] hover:bg-[#5a6b35] text-white border-[#6b7c45]"
+                  disabled={isExporting}
+                >
+                  <Download className="h-4 w-4" />
+                  {isExporting ? "Exportando..." : "Exportar"}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48 bg-white">
+                <DropdownMenuItem 
+                  onClick={handleExportPdf}
+                  className="cursor-pointer gap-2 hover:bg-gray-100"
+                  disabled={isExporting}
+                >
+                  <FileText className="h-4 w-4 text-red-500" />
+                  <span>Exportar a PDF</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  onClick={handleExportExcel}
+                  className="cursor-pointer gap-2 hover:bg-gray-100"
+                  disabled={isExporting}
+                >
+                  <FileSpreadsheet className="h-4 w-4 text-green-600" />
+                  <span>Exportar a Excel</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
 
