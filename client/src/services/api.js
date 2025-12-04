@@ -343,6 +343,62 @@ export const productService = {
     } catch (error) {
       throw new Error(error.userMessage || 'Error al eliminar producto');
     }
+  },
+
+  // Exportar productos a Excel
+  exportToExcel: async () => {
+    try {
+      const response = await api.get('/products/export/excel', {
+        responseType: 'blob',
+        headers: {
+          'Accept': 'application/octet-stream'
+        }
+      });
+      
+      // Crear un blob y descargarlo
+      const blob = new Blob([response.data], { 
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+      });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `productos_${new Date().toISOString().split('T')[0]}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      return { success: true };
+    } catch (error) {
+      throw new Error(error.userMessage || 'Error al exportar a Excel');
+    }
+  },
+
+  // Exportar productos a PDF
+  exportToPdf: async () => {
+    try {
+      const response = await api.get('/products/export/pdf', {
+        responseType: 'blob',
+        headers: {
+          'Accept': 'application/pdf'
+        }
+      });
+      
+      // Crear un blob y descargarlo
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `productos_${new Date().toISOString().split('T')[0]}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      return { success: true };
+    } catch (error) {
+      throw new Error(error.userMessage || 'Error al exportar a PDF');
+    }
   }
 };
 // ############### Servicios de la API para Proveedores ##############################
