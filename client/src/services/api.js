@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // Configuración base de la API
-const API_BASE_URL ='https://primer-parcial-spring-production.up.railway.app';
+const API_BASE_URL = 'http://localhost:8080';
 
 // Crear instancia de axios con configuracion base
 const api = axios.create({
@@ -506,6 +506,62 @@ export const goatService = {
       return response.data;
     } catch (error) {
       throw new Error(error.userMessage || 'Error al eliminar cabra');
+    }
+  },
+
+  // Exportar cabras a Excel
+  exportToExcel: async () => {
+    try {
+      const response = await api.get('/goats/export/excel', {
+        responseType: 'blob',
+        headers: {
+          'Accept': 'application/octet-stream'
+        }
+      });
+      
+      // Crear un blob y descargarlo
+      const blob = new Blob([response.data], { 
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+      });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `cabras_${new Date().toISOString().split('T')[0]}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      return { success: true };
+    } catch (error) {
+      throw new Error(error.userMessage || 'Error al exportar a Excel');
+    }
+  },
+
+  // Exportar cabras a PDF
+  exportToPdf: async () => {
+    try {
+      const response = await api.get('/goats/export/pdf', {
+        responseType: 'blob',
+        headers: {
+          'Accept': 'application/pdf'
+        }
+      });
+      
+      // Crear un blob y descargarlo
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `cabras_${new Date().toISOString().split('T')[0]}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      return { success: true };
+    } catch (error) {
+      throw new Error(error.userMessage || 'Error al exportar a PDF');
     }
   }
 };
